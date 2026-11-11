@@ -851,6 +851,13 @@ export class Screen {
    * World bounds are in world coordinates, useful for culling objects offscreen that are in world space
    */
   public getWorldBounds(): BoundingBox {
+    if (this._camera.rotation === 0) {
+      // the same box without the intermediate ones
+      const halfWidth = this.resolution.width / this._camera.zoom / 2;
+      const halfHeight = this.resolution.height / this._camera.zoom / 2;
+      const pos = this._camera.drawPos;
+      return new BoundingBox(pos.x - halfWidth, pos.y - halfHeight, pos.x + halfWidth, pos.y + halfHeight);
+    }
     const bounds = BoundingBox.fromDimension(this.resolution.width, this.resolution.height, Vector.Half)
       .scale(vec(1 / this._camera.zoom, 1 / this._camera.zoom))
       .rotate(this._camera.rotation)
