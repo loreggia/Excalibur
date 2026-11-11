@@ -35,6 +35,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: the graphics context's `save()` shares the current tint with the saved state instead of cloning it. Assigning `ctx.tint = color` after a `save()` works as before; changing the components of `ctx.tint` in place (`ctx.tint.a = 0.5`) now also changes the saved state's tint, so assign a new color instead
 - Perf: `MotionSystem` and `EulerIntegrator` add up acceleration, velocity and position as numbers instead of through cloned and scratch vectors, and `BodyComponent.captureOldTransform()` copies the old values directly and only re-parents the old transform when its parent changed
 - Perf: pointer event dispatch to entities reuses its list of targets, reads the frame's pointer maps instead of copying their keys into new sets, and swaps the last and current frame maps instead of copying one into a new map every frame
+- Perf: `CollisionSystem` swaps its last and current frame contact maps instead of copying the current one into a new map every frame
 
 ### Changed
 

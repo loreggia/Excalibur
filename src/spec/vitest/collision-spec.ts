@@ -273,6 +273,30 @@ describe('A Collision', () => {
       });
     }));
 
+  it('emits collisionstart and collisionend once each time objects start and stop touching, frame after frame', () => {
+    const mover = new ex.Actor({ x: 300, y: 300, width: 20, height: 20, collisionType: ex.CollisionType.Active });
+    const wall = new ex.Actor({ x: 330, y: 300, width: 20, height: 20, collisionType: ex.CollisionType.Passive });
+    engine.add(mover);
+    engine.add(wall);
+    const events: string[] = [];
+    mover.on('collisionstart', () => events.push('start'));
+    mover.on('collisionend', () => events.push('end'));
+    const frames = (x: number, count: number) => {
+      for (let i = 0; i < count; i++) {
+        mover.pos = ex.vec(x, 300);
+        clock.step(16);
+      }
+    };
+
+    frames(300, 2);
+    frames(320, 3);
+    frames(300, 2);
+    frames(320, 2);
+    frames(300, 1);
+
+    expect(events).toEqual(['start', 'end', 'start', 'end']);
+  });
+
   it('should emit a start collision once when objects start colliding', () =>
     new Promise<void>((done) => {
       engine.stop();

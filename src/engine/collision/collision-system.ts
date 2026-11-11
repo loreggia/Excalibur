@@ -193,11 +193,12 @@ export class CollisionSystem extends System {
     // Emit contact start/end events
     this.runContactStartEnd();
 
-    // reset the last frame cache
-    this._lastFrameContacts.clear();
-
-    // Keep track of collisions contacts that have started or ended
-    this._lastFrameContacts = new Map(this._currentFrameContacts);
+    // Keep track of collisions contacts that have started or ended: the two maps trade places, this frame's becomes the
+    // last frame's, and the old last frame's is emptied for the next
+    const lastFrameContacts = this._lastFrameContacts;
+    lastFrameContacts.clear();
+    this._lastFrameContacts = this._currentFrameContacts;
+    this._currentFrameContacts = lastFrameContacts;
 
     // Process deferred collider removals
     for (const entity of this.query.entities) {
