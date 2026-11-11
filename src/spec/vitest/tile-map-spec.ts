@@ -440,6 +440,43 @@ describe('A TileMap', () => {
     });
   });
 
+  it('draws exactly the on screen tiles, also when fewer are on screen than the frame before', () => {
+    const tm = new ex.TileMap({ pos: ex.vec(0, 0), tileWidth: 64, tileHeight: 48, rows: 20, columns: 20 });
+    const graphic = new ex.Rectangle({ width: 64, height: 48, color: ex.Color.Red });
+    for (const tile of tm.tiles) {
+      tile.addGraphic(graphic);
+    }
+    tm._initialize(engine);
+    const draw = vi.spyOn(graphic, 'draw');
+    const frame = (pos: ex.Vector) => {
+      tm.pos = pos;
+      draw.mockClear();
+      drawWithTransform(engine.graphicsContext, tm);
+      const onScreen = tm.getOnScreenTiles();
+      expect(draw).toHaveBeenCalledTimes(onScreen.length);
+      expect(draw.mock.calls.map(([, x, y]) => [x, y])).toEqual(onScreen.map((tile) => [tile.x * 64, tile.y * 48]));
+      return onScreen.length;
+    };
+
+    const many = frame(ex.vec(0, 0));
+    const few = frame(ex.vec(700, 150));
+
+    expect(few).toBeGreaterThan(0);
+    expect(few).toBeLessThan(many);
+  });
+
+  it('hands out a new list of on screen tiles on every call', () => {
+    const tm = new ex.TileMap({ pos: ex.vec(0, 0), tileWidth: 64, tileHeight: 48, rows: 20, columns: 20 });
+    tm._initialize(engine);
+
+    const first = tm.getOnScreenTiles();
+    const second = tm.getOnScreenTiles();
+
+    expect(second).not.toBe(first);
+    expect(second).toEqual(first);
+    expect(first.length).toBeGreaterThan(0);
+  });
+
   it('can return a tile by xy coord', () => {
     const sut = new ex.TileMap({
       pos: ex.vec(-100, -100),
