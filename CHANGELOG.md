@@ -39,6 +39,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: the per-frame actor stats walk the scene's entities instead of reading `Scene.actors`, which filters them into a new array on every read
 - Perf: `TileMap` draws from a list of on screen tiles it keeps, and finds the corners of the screen in tile coordinates without temporary vectors. `getOnScreenTiles()` still returns a new array
 - Perf: `Screen.getWorldBounds()` works the box out directly while the camera is not rotated, rather than through a box per step
+- Perf: `GraphicsComponent` without a graphic keeps one empty box for its `localBounds`, which it recalculated into a new box on every read
 
 ### Changed
 

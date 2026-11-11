@@ -514,6 +514,19 @@ describe('A Graphics ECS Component', () => {
     );
   });
 
+  it('keeps one empty box for its bounds while it has no graphic, and bounds a graphic shown later', () => {
+    const sut = new ex.GraphicsComponent();
+
+    const empty = sut.localBounds;
+    expect(empty).toEqual(new ex.BoundingBox());
+    expect(sut.localBounds).toBe(empty);
+
+    sut.use(new ex.Rectangle({ width: 10, height: 20 }));
+
+    expect(sut.localBounds).toEqual(new ex.BoundingBox({ left: -5, right: 5, top: -10, bottom: 10 }));
+    expect(empty).toEqual(new ex.BoundingBox());
+  });
+
   it('should use WatchVector for offset and anchor after deserialization', () => {
     const sut = new ex.GraphicsComponent();
     const rect = new ex.Rectangle({ width: 100, height: 100 });
