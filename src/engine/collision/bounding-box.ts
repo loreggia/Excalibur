@@ -220,13 +220,15 @@ export class BoundingBox {
     const yb1 = matrix.data[2] * this.bottom;
     const yb2 = matrix.data[3] * this.bottom;
 
-    const matrixPos = matrix.getPosition();
+    // the translation, straight off the matrix: getPosition() allocates a vector
+    const x = matrix.data[4];
+    const y = matrix.data[5];
     // const topLeft = Vector.min(xa, xb).add(Vector.min(ya, yb)).add(matrixPos);
     // const bottomRight = Vector.max(xa, xb).add(Vector.max(ya, yb)).add(matrixPos);
-    const left = Math.min(xa1, xb1) + Math.min(ya1, yb1) + matrixPos.x;
-    const top = Math.min(xa2, xb2) + Math.min(ya2, yb2) + matrixPos.y;
-    const right = Math.max(xa1, xb1) + Math.max(ya1, yb1) + matrixPos.x;
-    const bottom = Math.max(xa2, xb2) + Math.max(ya2, yb2) + matrixPos.y;
+    const left = Math.min(xa1, xb1) + Math.min(ya1, yb1) + x;
+    const top = Math.min(xa2, xb2) + Math.min(ya2, yb2) + y;
+    const right = Math.max(xa1, xb1) + Math.max(ya1, yb1) + x;
+    const bottom = Math.max(xa2, xb2) + Math.max(ya2, yb2) + y;
 
     if (dest) {
       dest.left = left;
@@ -253,8 +255,8 @@ export class BoundingBox {
     return 2 * (wx + wy);
   }
 
-  // Cache bounding box point returns
-  private _points: Vector[] = [];
+  // Cache bounding box point returns, created on first use: most boxes never have their points asked for
+  private _points?: Vector[];
   private _left?: number;
   private _right?: number;
   private _top?: number;
@@ -264,18 +266,22 @@ export class BoundingBox {
    * Returns the world space points that make up the corners of the bounding box as a polygon
    */
   public getPoints(): readonly Vector[] {
+    if (!this._points) {
+      this._points = [];
+    }
+    const points = this._points;
     if (this._left !== this.left || this._right !== this.right || this._top !== this.top || this._bottom !== this.bottom) {
-      this._points.length = 0;
-      this._points.push(new Vector(this.left, this.top));
-      this._points.push(new Vector(this.right, this.top));
-      this._points.push(new Vector(this.right, this.bottom));
-      this._points.push(new Vector(this.left, this.bottom));
+      points.length = 0;
+      points.push(new Vector(this.left, this.top));
+      points.push(new Vector(this.right, this.top));
+      points.push(new Vector(this.right, this.bottom));
+      points.push(new Vector(this.left, this.bottom));
       this._left = this.left;
       this._right = this.right;
       this._top = this.top;
       this._bottom = this.bottom;
     }
-    return this._points;
+    return points;
   }
 
   /**

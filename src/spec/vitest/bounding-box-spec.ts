@@ -217,6 +217,32 @@ function runBoundingBoxTests(creationType: string, createBoundingBox: Function) 
       expect(newBB.bottom).toBeCloseTo(dim);
     });
 
+    it('includes the translation of the matrix it is transformed by, also into a box it is given', () => {
+      const bb = new ex.BoundingBox(-5, -10, 5, 10);
+      const matrix = ex.AffineMatrix.identity().translate(100, 200).scale(2, 1);
+      const dest = new ex.BoundingBox();
+
+      const newBB = bb.transform(matrix);
+      const intoDest = bb.transform(matrix, dest);
+
+      expect(intoDest).toBe(dest);
+      for (const result of [newBB, intoDest]) {
+        expect(result.left).toBeCloseTo(90);
+        expect(result.right).toBeCloseTo(110);
+        expect(result.top).toBeCloseTo(190);
+        expect(result.bottom).toBeCloseTo(210);
+      }
+    });
+
+    it('returns its corners as points, which follow the box when it changes', () => {
+      const bb = new ex.BoundingBox(0, 0, 10, 20);
+      expect(bb.getPoints()).toEqual([ex.vec(0, 0), ex.vec(10, 0), ex.vec(10, 20), ex.vec(0, 20)]);
+
+      bb.right = 30;
+
+      expect(bb.getPoints()).toEqual([ex.vec(0, 0), ex.vec(30, 0), ex.vec(30, 20), ex.vec(0, 20)]);
+    });
+
     describe('when in full containment', () => {
       it('closest right', () => {
         const bb = new ex.BoundingBox(0, 0, 50, 50);

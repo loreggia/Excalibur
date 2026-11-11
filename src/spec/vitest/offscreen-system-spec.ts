@@ -69,4 +69,25 @@ describe('The OffscreenSystem', () => {
     expect(onscreenSpy).toHaveBeenCalled();
     expect(offscreen.hasTag('ex.offscreen')).toBe(false);
   });
+
+  it('tells onscreen and offscreen entities apart within the same frame', () => {
+    const sut = new ex.OffscreenSystem(engine.currentScene.world);
+    engine.currentScene.camera.update(engine, 1);
+    engine.screen.setCurrentCamera(engine.currentScene.camera);
+    engine.currentScene._initialize(engine);
+    sut.onInitialize(engine.currentScene.world, engine.currentScene);
+
+    const place = (x: number, y: number) => {
+      const entity = new ex.Entity([new TransformComponent(), new GraphicsComponent()]);
+      entity.get(GraphicsComponent).use(new ex.Rectangle({ width: 25, height: 25, color: ex.Color.Yellow }));
+      entity.get(TransformComponent).pos = ex.vec(x, y);
+      sut.query.checkAndModify(entity);
+      return entity;
+    };
+    const entities = [place(50, 50), place(112.5, 112.5), place(80, 80), place(-40, 50)];
+
+    sut.onUpdate();
+
+    expect(entities.map((entity) => entity.hasTag('ex.offscreen'))).toEqual([false, true, false, true]);
+  });
 });
