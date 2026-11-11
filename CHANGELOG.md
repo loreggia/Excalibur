@@ -24,6 +24,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Updates
 
 - Perf: `CollisionSystem` no longer copies its list of colliders once per composite collider every frame, which made collider bookkeeping quadratic in the number of composite colliders (a tile map with solid tiles is one). The list is also reused between frames
+- Perf: `SparseHashGridCollisionProcessor.broadphase` no longer hashes every candidate pair into two `Set`s each frame to tell which it has already tested, it marks the proxies instead. `Pair.id` is now built on first read, and `Pair.reset(colliderA, colliderB)` re-points a pair
 
 ### Changed
 

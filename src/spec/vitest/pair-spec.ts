@@ -21,6 +21,19 @@ describe('A Collision Pair', () => {
     expect(sut.id).toBe(`#${actor1.collider.get()!.id.value}+${actor2.collider.get()!.id.value}`);
   });
 
+  it('can be reset to other colliders, and its id follows them', () => {
+    const colliderA = new ex.Actor({ width: 10, height: 10 }).collider.get()!;
+    const colliderB = new ex.Actor({ width: 10, height: 10 }).collider.get()!;
+    const colliderC = new ex.Actor({ width: 10, height: 10 }).collider.get()!;
+    const sut = new ex.Pair(colliderA, colliderB);
+    expect(sut.id).toBe(ex.Pair.calculatePairHash(colliderA.id, colliderB.id));
+
+    sut.reset(colliderA, colliderC);
+
+    expect(sut.colliderB).toBe(colliderC);
+    expect(sut.id).toBe(ex.Pair.calculatePairHash(colliderA.id, colliderC.id));
+  });
+
   it('cannot collide without a body', () => {
     const actor1 = new ex.Actor({
       width: 10,
