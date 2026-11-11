@@ -122,6 +122,35 @@ describe('A TransformComponent', () => {
     expect(childTx.scale).toBeVector(ex.vec(3 / 2, 4 / 3));
   });
 
+  it('builds a child matrix as the parent matrix times the local one, frame after frame, with mirrored scales', () => {
+    const parent = new ex.Transform();
+    parent.pos = ex.vec(10, 20);
+    parent.rotation = 0.5;
+    parent.scale = ex.vec(-2, 1);
+    const child = new ex.Transform();
+    child.parent = parent;
+    const local = new ex.Transform();
+
+    const frames = [
+      { pos: ex.vec(5, 0), rotation: 0.25, scale: ex.vec(1, -1) },
+      { pos: ex.vec(-3, 7), rotation: 1, scale: ex.vec(-3, 2) },
+      { pos: ex.vec(0, 0), rotation: 0, scale: ex.vec(2, 2) },
+      { pos: ex.vec(1, 1), rotation: 2, scale: ex.vec(-1, -1) }
+    ];
+    for (const { pos, rotation, scale } of frames) {
+      for (const tx of [child, local]) {
+        tx.pos = pos;
+        tx.rotation = rotation;
+        tx.scale = scale;
+      }
+      const expected = parent.matrix.multiply(local.matrix);
+
+      expect(Array.from(child.matrix.data)).toEqual(Array.from(expected.data));
+      expect(child.matrix.getScaleX()).toBe(expected.getScaleX());
+      expect(child.matrix.getScaleY()).toBe(expected.getScaleY());
+    }
+  });
+
   it('can have parent/child relationships with rotation', () => {
     const parent = new ex.Entity([new ex.TransformComponent()]);
     const child = new ex.Entity([new ex.TransformComponent()]);

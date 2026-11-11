@@ -27,6 +27,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: `SparseHashGridCollisionProcessor.broadphase` no longer hashes every candidate pair into two `Set`s each frame to tell which it has already tested, it marks the proxies instead. `Pair.id` is now built on first read, and `Pair.reset(colliderA, colliderB)` re-points a pair
 - Perf: `PhysicsWorld.config` no longer builds a new proxy, and one more for every nested object read through it, on every read. It hands out the same proxy until the config is replaced, and the same proxy for a nested object until that object is replaced
 - Added `Collider.getBounds(dest)`, which writes the world space bounds into a box it is given where `Collider.bounds` makes a new one. The sparse hash grid and the arcade solver use it, so they no longer allocate a box per collider for every read of its bounds
+- Perf: `Transform.matrix` multiplies a child transform's matrix straight into its own, instead of into a new matrix it then copies
 
 ### Changed
 

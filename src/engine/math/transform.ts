@@ -5,6 +5,9 @@ import { vec } from './vector';
 import { VectorView } from './vector-view';
 import { WatchVector } from './watch-vector';
 
+/** Never mutated, copied into a matrix to reset it including its scale signs */
+const IDENTITY = AffineMatrix.identity();
+
 export class Transform {
   private _parent: Transform | null = null;
   get parent() {
@@ -195,7 +198,9 @@ export class Transform {
       if (this.parent === null) {
         this._calculateMatrix().clone(this._matrix);
       } else {
-        this.parent.matrix.multiply(this._calculateMatrix()).clone(this._matrix);
+        // multiply() folds the destination's scale signs into the result, so start from a clean identity
+        IDENTITY.clone(this._matrix);
+        this.parent.matrix.multiply(this._calculateMatrix(), this._matrix);
       }
       this._isDirty = false;
     }
