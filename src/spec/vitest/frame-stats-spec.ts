@@ -53,6 +53,22 @@ describe('The engine', () => {
       expect(stats.actors.ui, 'Frame actor ui count is wrong').toBe(0);
     });
 
+    it('counts actors, their children and screen elements, and skips entities that are not actors', () => {
+      const parent = new ex.Actor({ x: 50, y: 50, width: 10, height: 10 });
+      parent.addChild(new ex.Actor({ width: 5, height: 5 }));
+      scene.add(parent);
+      scene.add(new ex.ScreenElement({ x: 10, y: 10, width: 10, height: 10 }));
+      scene.add(new ex.Entity([new ex.TransformComponent()]));
+
+      (engine.clock as TestClock).step(16.6);
+      const frame = engine.stats.currFrame;
+
+      // the default actor, the parent, its child and the screen element as entities,
+      // plus the child again through its parent (TODO verify whether this double-counting is intended)
+      expect(frame.actors.alive).toBe(5);
+      expect(frame.actors.ui).toBe(1);
+    });
+
     it('should collect frame duration stats', () => {
       expect(stats.duration.total, 'Frame duration total is wrong').toBeCloseTo(0, 1);
       expect(stats.duration.draw, 'Frame duration draw is wrong').toBeCloseTo(0, 1);

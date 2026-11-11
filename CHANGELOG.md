@@ -36,6 +36,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: `MotionSystem` and `EulerIntegrator` add up acceleration, velocity and position as numbers instead of through cloned and scratch vectors, and `BodyComponent.captureOldTransform()` copies the old values directly and only re-parents the old transform when its parent changed
 - Perf: pointer event dispatch to entities reuses its list of targets, reads the frame's pointer maps instead of copying their keys into new sets, and swaps the last and current frame maps instead of copying one into a new map every frame
 - Perf: `CollisionSystem` swaps its last and current frame contact maps instead of copying the current one into a new map every frame
+- Perf: the per-frame actor stats walk the scene's entities instead of reading `Scene.actors`, which filters them into a new array on every read
 
 ### Changed
 

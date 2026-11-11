@@ -843,9 +843,13 @@ export class Scene<TActivationData = unknown> implements CanInitialize, CanActiv
   }
 
   private _collectActorStats(engine: Engine) {
-    const actors = this.actors;
-    for (let i = 0; i < actors.length; i++) {
-      const actor = actors[i];
+    // straight off the entities: `actors` filters them into a new array on every read
+    const entities = this.world.entityManager.entities;
+    for (let i = 0; i < entities.length; i++) {
+      const actor = entities[i];
+      if (!(actor instanceof Actor)) {
+        continue;
+      }
       if (actor instanceof ScreenElement) {
         engine.stats.currFrame.actors.ui++;
       }
