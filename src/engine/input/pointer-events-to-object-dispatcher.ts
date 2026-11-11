@@ -44,6 +44,12 @@ export class PointerEventsToObjectDispatcher<TObject extends { events: EventEmit
   private _objectToProxy = new Map<TObject, PointerTargetObjectProxy<TObject>>();
   private _proxies: PointerTargetObjectProxy<TObject>[] = [];
 
+  private _lastFrameObjectToPointers = new Map<PointerTargetObjectProxy<any>, number[]>();
+  private _currentFrameObjectToPointers = new Map<PointerTargetObjectProxy<any>, number[]>();
+
+  /** Reused by {@apilink dispatchEvents}, which fills the start of it */
+  private _dispatchProxies: PointerTargetObjectProxy<TObject>[] = [];
+
   /**
    * Tracks an object to associate with pointers and their events
    * @param object
@@ -80,8 +86,7 @@ export class PointerEventsToObjectDispatcher<TObject extends { events: EventEmit
       this._proxyPool.return(proxy);
     }
   }
-  private _lastFrameObjectToPointers = new Map<PointerTargetObjectProxy<any>, number[]>();
-  private _currentFrameObjectToPointers = new Map<PointerTargetObjectProxy<any>, number[]>();
+
   private _objectCurrentlyUnderPointer(object: PointerTargetObjectProxy<any>, pointerId: number): boolean {
     return !!(this._currentFrameObjectToPointers.has(object) && this._currentFrameObjectToPointers.get(object)!.includes(pointerId));
   }
@@ -125,34 +130,42 @@ export class PointerEventsToObjectDispatcher<TObject extends { events: EventEmit
    * @param sortedObjects
    */
   public dispatchEvents(receiver: PointerEventReceiver, sortedObjects?: TObject[]) {
-    const lastFrameEntities = new Set(this._lastFrameObjectToPointers.keys());
-    const currentFrameEntities = new Set(this._currentFrameObjectToPointers.keys());
+    const lastFrameEntities = this._lastFrameObjectToPointers;
+    const currentFrameEntities = this._currentFrameObjectToPointers;
     // Filter preserves z order
     let lastMovePerPointer: Map<number, PointerEvent>;
     let lastUpPerPointer: Map<number, PointerEvent>;
     let lastDownPerPointer: Map<number, PointerEvent>;
 
-    let sortedObjectsProxies: PointerTargetObjectProxy<TObject>[] = [];
+    // resolved before anything is dispatched, a handler may untrack an object
+    const sortedObjectsProxies = this._dispatchProxies;
+    let proxyCount = 0;
     if (sortedObjects) {
       for (let i = 0; i < sortedObjects.length; i++) {
         const object = sortedObjects[i];
         const proxy = this._getProxy(object);
-        sortedObjectsProxies.push(proxy);
+        sortedObjectsProxies[proxyCount++] = proxy;
         // TODO it might be faster to "just" maintain a sorted list from last/current frame
         // this will require some more engineering to accurately track z index changes over time
       }
     } else {
       // eschew sorted order just use last/current frame entities in any order
-      // TODO use Set.union when it's more supported by the last 5 Safari versions
-      const unsortedObjectProxies = new Set(lastFrameEntities);
-      for (const other of currentFrameEntities) {
-        unsortedObjectProxies.add(other);
+      for (const proxy of lastFrameEntities.keys()) {
+        sortedObjectsProxies[proxyCount++] = proxy;
       }
-      sortedObjectsProxies = Array.from(unsortedObjectProxies);
+      for (const proxy of currentFrameEntities.keys()) {
+        if (!lastFrameEntities.has(proxy)) {
+          sortedObjectsProxies[proxyCount++] = proxy;
+        }
+      }
+    }
+    // shrinking only when a lot fewer are tracked keeps the backing store, which truncating to 0 would free
+    if (sortedObjectsProxies.length > proxyCount * 2) {
+      sortedObjectsProxies.length = proxyCount;
     }
 
     // Dispatch events in proxy z order
-    for (let i = 0; i < sortedObjectsProxies.length; i++) {
+    for (let i = 0; i < proxyCount; i++) {
       const proxy = sortedObjectsProxies[i];
       if (hasNestedEvents(proxy.object)) {
         proxy.object._dispatchPointerEvents(receiver);
@@ -199,9 +212,11 @@ export class PointerEventsToObjectDispatcher<TObject extends { events: EventEmit
    * Clear current frames pointer-object associations and track last frame pointer-object associations
    */
   public clear() {
-    this._lastFrameObjectToPointers.clear();
-    this._lastFrameObjectToPointers = new Map<PointerTargetObjectProxy<any>, number[]>(this._currentFrameObjectToPointers);
-    this._currentFrameObjectToPointers.clear();
+    // the two maps trade places: this frame's becomes the last frame's, and the old last frame's is emptied for the next
+    const lastFrame = this._lastFrameObjectToPointers;
+    lastFrame.clear();
+    this._lastFrameObjectToPointers = this._currentFrameObjectToPointers;
+    this._currentFrameObjectToPointers = lastFrame;
   }
 
   private _processDownAndEmit(receiver: PointerEventReceiver, object: PointerTargetObjectProxy<any>): Map<number, PointerEvent> {
