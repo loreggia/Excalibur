@@ -30,6 +30,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: `Transform.matrix` multiplies a child transform's matrix straight into its own, instead of into a new matrix it then copies
 - Added `EventEmitter.hasListeners(eventName)`, which is true when emitting that event would reach a listener, a once listener or a piped emitter. The engine, scenes, cameras, entities, tile maps and the graphics system use it to skip building their per-frame lifecycle events (`preupdate`, `postupdate`, `predraw`, `postdraw`, `pretransformdraw`, `posttransformdraw`) when nothing would receive them, and colliders to skip forwarding `precollision` and `postcollision` to an entity nothing listens on
 - Perf: `EventEmitter.emit` no longer replaces the list of once listeners with a new empty array on every emit, only when there were once listeners to fire
+- Perf: `GraphicsSystem` walks up an entity's parents to apply their transforms and opacity, instead of building an array of its ancestors twice per entity every frame
 
 ### Changed
 

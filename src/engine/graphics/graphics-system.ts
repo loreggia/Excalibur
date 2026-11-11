@@ -272,34 +272,34 @@ export class GraphicsSystem extends System {
    * @param entity
    */
   private _applyTransform(entity: Entity): void {
-    const ancestors = entity.getAncestors();
-    for (let i = 0; i < ancestors.length; i++) {
-      const ancestor = ancestors[i];
-      const transform = ancestor?.get(TransformComponent);
-      const optionalBody = ancestor?.get(BodyComponent);
-      if (transform) {
-        let tx = transform.get();
-        if (optionalBody && !optionalBody.isSleeping) {
-          if (this._engine.fixedUpdateTimestep && optionalBody.__oldTransformCaptured && optionalBody.enableFixedUpdateInterpolate) {
-            // Interpolate graphics if needed
-            const blend = this._engine.currentFrameLag / this._engine.fixedUpdateTimestep;
-            tx = blendTransform(optionalBody.oldTransform, transform.get(), blend, this._targetInterpolationTransform);
-          }
+    // ancestors first, from the root down
+    if (entity.parent) {
+      this._applyTransform(entity.parent);
+    }
+    const transform = entity.get(TransformComponent);
+    const optionalBody = entity.get(BodyComponent);
+    if (transform) {
+      let tx = transform.get();
+      if (optionalBody && !optionalBody.isSleeping) {
+        if (this._engine.fixedUpdateTimestep && optionalBody.__oldTransformCaptured && optionalBody.enableFixedUpdateInterpolate) {
+          // Interpolate graphics if needed
+          const blend = this._engine.currentFrameLag / this._engine.fixedUpdateTimestep;
+          tx = blendTransform(optionalBody.oldTransform, transform.get(), blend, this._targetInterpolationTransform);
         }
-        this._graphicsContext.z = transform.globalZ;
-        this._graphicsContext.translate(tx.pos.x, tx.pos.y);
-        this._graphicsContext.scale(tx.scale.x, tx.scale.y);
-        this._graphicsContext.rotate(tx.rotation);
       }
+      this._graphicsContext.z = transform.globalZ;
+      this._graphicsContext.translate(tx.pos.x, tx.pos.y);
+      this._graphicsContext.scale(tx.scale.x, tx.scale.y);
+      this._graphicsContext.rotate(tx.rotation);
     }
   }
 
   private _applyOpacity(entity: Entity): void {
-    const ancestors = entity.getAncestors();
-    for (let i = 0; i < ancestors.length; i++) {
-      const ancestor = ancestors[i];
-      const maybeGraphics = ancestor?.get(GraphicsComponent);
-      this._graphicsContext.opacity *= maybeGraphics?.opacity ?? 1;
+    // ancestors first, from the root down
+    if (entity.parent) {
+      this._applyOpacity(entity.parent);
     }
+    const maybeGraphics = entity.get(GraphicsComponent);
+    this._graphicsContext.opacity *= maybeGraphics?.opacity ?? 1;
   }
 }
