@@ -107,7 +107,9 @@ export class GraphicsSystem extends System {
       if (graphics.onPreTransformDraw) {
         graphics.onPreTransformDraw(this._graphicsContext, elapsed);
       }
-      entity.events.emit('pretransformdraw', new PreTransformDrawEvent(this._graphicsContext, elapsed, entity));
+      if (entity.events.hasListeners('pretransformdraw')) {
+        entity.events.emit('pretransformdraw', new PreTransformDrawEvent(this._graphicsContext, elapsed, entity));
+      }
 
       // This optionally sets our camera based on the entity coord plan (world vs. screen)
       if (transform.coordPlane === CoordPlane.Screen) {
@@ -145,7 +147,9 @@ export class GraphicsSystem extends System {
       if (graphics.onPreDraw) {
         graphics.onPreDraw(this._graphicsContext, elapsed);
       }
-      entity.events.emit('predraw', new PreDrawEvent(this._graphicsContext, elapsed, entity));
+      if (entity.events.hasListeners('predraw')) {
+        entity.events.emit('predraw', new PreDrawEvent(this._graphicsContext, elapsed, entity));
+      }
 
       // this._graphicsContext.opacity *= graphics.opacity;
       this._applyOpacity(entity);
@@ -157,7 +161,9 @@ export class GraphicsSystem extends System {
       if (graphics.onPostDraw) {
         graphics.onPostDraw(this._graphicsContext, elapsed);
       }
-      entity.events.emit('postdraw', new PostDrawEvent(this._graphicsContext, elapsed, entity));
+      if (entity.events.hasListeners('postdraw')) {
+        entity.events.emit('postdraw', new PostDrawEvent(this._graphicsContext, elapsed, entity));
+      }
 
       this._graphicsContext.restore();
 
@@ -173,7 +179,9 @@ export class GraphicsSystem extends System {
       if (graphics.onPostTransformDraw) {
         graphics.onPostTransformDraw(this._graphicsContext, elapsed);
       }
-      entity.events.emit('posttransformdraw', new PostTransformDrawEvent(this._graphicsContext, elapsed, entity));
+      if (entity.events.hasListeners('posttransformdraw')) {
+        entity.events.emit('posttransformdraw', new PostTransformDrawEvent(this._graphicsContext, elapsed, entity));
+      }
     }
     this._graphicsContext.restore();
   }

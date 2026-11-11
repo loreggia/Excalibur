@@ -614,7 +614,9 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
   public override update(engine: Engine, elapsed: number) {
     this._initialize(engine);
     this.onPreUpdate(engine, elapsed);
-    this.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('preupdate')) {
+      this.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    }
 
     // Update colliders
     if (!this._oldPos.equals(this.pos) || this._oldRotation !== this.rotation || !this._oldScale.equals(this.scale)) {
@@ -636,7 +638,9 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
     this.scale.clone(this._oldScale);
     this.transform.pos = this.pos;
     this.onPostUpdate(engine, elapsed);
-    this.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('postupdate')) {
+      this.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    }
   }
 
   /**
@@ -648,7 +652,9 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
     if (!this.isInitialized) {
       return;
     }
-    this.emit('predraw', new PreDrawEvent(ctx as any, elapsed, this)); // TODO fix event
+    if (this.events.hasListeners('predraw')) {
+      this.emit('predraw', new PreDrawEvent(ctx as any, elapsed, this)); // TODO fix event
+    }
 
     let graphics: readonly Graphic[], graphicsIndex: number, graphicsLen: number;
 
@@ -672,7 +678,9 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
         }
       }
     }
-    this.emit('postdraw', new PostDrawEvent(ctx as any, elapsed, this));
+    if (this.events.hasListeners('postdraw')) {
+      this.emit('postdraw', new PostDrawEvent(ctx as any, elapsed, this));
+    }
   }
 
   public debug(gfx: ExcaliburGraphicsContext, debugFlags: DebugConfig) {

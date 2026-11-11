@@ -28,6 +28,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: `PhysicsWorld.config` no longer builds a new proxy, and one more for every nested object read through it, on every read. It hands out the same proxy until the config is replaced, and the same proxy for a nested object until that object is replaced
 - Added `Collider.getBounds(dest)`, which writes the world space bounds into a box it is given where `Collider.bounds` makes a new one. The sparse hash grid and the arcade solver use it, so they no longer allocate a box per collider for every read of its bounds
 - Perf: `Transform.matrix` multiplies a child transform's matrix straight into its own, instead of into a new matrix it then copies
+- Added `EventEmitter.hasListeners(eventName)`, which is true when emitting that event would reach a listener, a once listener or a piped emitter. The engine, scenes, cameras, entities, tile maps and the graphics system use it to skip building their per-frame lifecycle events (`preupdate`, `postupdate`, `predraw`, `postdraw`, `pretransformdraw`, `posttransformdraw`) when nothing would receive them, and colliders to skip forwarding `precollision` and `postcollision` to an entity nothing listens on
 
 ### Changed
 

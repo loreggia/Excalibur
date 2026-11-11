@@ -1442,6 +1442,21 @@ describe('A game actor', () => {
       expect(actor.onPreUpdate).toHaveBeenCalledTimes(2);
     });
 
+    it('emits preupdate and postupdate to listeners added after it has updated without any', () => {
+      actor.update(engine, 100);
+      const preupdate = vi.fn();
+      const postupdate = vi.fn();
+      actor.on('preupdate', preupdate);
+      actor.on('postupdate', postupdate);
+
+      actor.update(engine, 100);
+
+      expect(preupdate).toHaveBeenCalledTimes(1);
+      expect(preupdate.mock.calls[0][0]).toBeInstanceOf(ex.PreUpdateEvent);
+      expect(postupdate).toHaveBeenCalledTimes(1);
+      expect(postupdate.mock.calls[0][0].elapsed).toBe(100);
+    });
+
     it('can have onPreKill overridden safely', () => {
       engine.add(actor);
       actor.onPreKill = (scene) => {

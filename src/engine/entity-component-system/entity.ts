@@ -551,7 +551,9 @@ export class Entity<TKnownComponents extends Component = any> implements OnIniti
    * @internal
    */
   public _preupdate(engine: Engine, elapsed: number): void {
-    this.events.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('preupdate')) {
+      this.events.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    }
     this.onPreUpdate(engine, elapsed);
   }
 
@@ -562,7 +564,9 @@ export class Entity<TKnownComponents extends Component = any> implements OnIniti
    * @internal
    */
   public _postupdate(engine: Engine, elapsed: number): void {
-    this.events.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('postupdate')) {
+      this.events.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    }
     this.onPostUpdate(engine, elapsed);
   }
 

@@ -188,6 +188,62 @@ describe('An EventEmitter', () => {
     }).toThrowError('Cannot pipe to self');
   });
 
+  describe('hasListeners()', () => {
+    it('is false until something listens to that event', () => {
+      const emitter = new ex.EventEmitter();
+      expect(emitter.hasListeners('event')).toBe(false);
+
+      emitter.on('other', vi.fn());
+
+      expect(emitter.hasListeners('event')).toBe(false);
+      expect(emitter.hasListeners('other')).toBe(true);
+    });
+
+    it('is true for an "on" listener until it is switched off', () => {
+      const emitter = new ex.EventEmitter();
+      const handler = vi.fn();
+      emitter.on('event', handler);
+      expect(emitter.hasListeners('event')).toBe(true);
+
+      emitter.off('event', handler);
+
+      expect(emitter.hasListeners('event')).toBe(false);
+    });
+
+    it('is true for a "once" listener until it has fired', () => {
+      const emitter = new ex.EventEmitter();
+      emitter.once('event', vi.fn());
+      expect(emitter.hasListeners('event')).toBe(true);
+
+      emitter.emit('event', new FakeEvent());
+
+      expect(emitter.hasListeners('event')).toBe(false);
+    });
+
+    it('is true for every event while the emitter is piped', () => {
+      const emitter = new ex.EventEmitter();
+      const sub = emitter.pipe(new ex.EventEmitter());
+      expect(emitter.hasListeners('event')).toBe(true);
+
+      sub.close();
+
+      expect(emitter.hasListeners('event')).toBe(false);
+    });
+
+    it('is false while the emitter is paused or after it is cleared', () => {
+      const emitter = new ex.EventEmitter();
+      emitter.on('event', vi.fn());
+
+      emitter.pause();
+      expect(emitter.hasListeners('event')).toBe(false);
+      emitter.unpause();
+      expect(emitter.hasListeners('event')).toBe(true);
+
+      emitter.clear();
+      expect(emitter.hasListeners('event')).toBe(false);
+    });
+  });
+
   it('can listen to a handler only once', () => {
     const pubsub = new ex.EventEmitter();
 
