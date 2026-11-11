@@ -616,10 +616,16 @@ export class BodyComponent extends Component implements Clonable<BodyComponent> 
     this.__oldTransformCaptured = true;
     const tx = this.transform.get();
     tx.clone(this.oldTransform);
-    this.oldTransform.parent = tx.parent; // also grab parent
-    this.oldVel.setTo(this.vel.x, this.vel.y);
-    this.oldAcc.setTo(this.acc.x, this.acc.y);
-    this.oldGlobalPos.setTo(this.globalPos.x, this.globalPos.y);
+    // also grab parent, only on a change: the setter moves the transform between its parents' children lists
+    if (this.oldTransform.parent !== tx.parent) {
+      this.oldTransform.parent = tx.parent;
+    }
+    const motion = this.motion;
+    this.oldVel.setTo(motion.vel.x, motion.vel.y);
+    this.oldAcc.setTo(motion.acc.x, motion.acc.y);
+    // the global position, straight off the matrix it is read from
+    const matrix = tx.matrix.data;
+    this._oldGlobalPos.setTo(matrix[4], matrix[5]);
   }
 
   public override clone(): BodyComponent {

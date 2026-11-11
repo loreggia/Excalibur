@@ -33,6 +33,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: `GraphicsSystem` walks up an entity's parents to apply their transforms and opacity, instead of building an array of its ancestors twice per entity every frame
 - Perf: `OffscreenSystem` transforms each entity's bounds into a box it keeps; `BoundingBox.transform` reads the translation straight off the matrix instead of through a new vector; a `BoundingBox` creates the array for `getPoints()` on first use
 - Perf: the graphics context's `save()` shares the current tint with the saved state instead of cloning it. Assigning `ctx.tint = color` after a `save()` works as before; changing the components of `ctx.tint` in place (`ctx.tint.a = 0.5`) now also changes the saved state's tint, so assign a new color instead
+- Perf: `MotionSystem` and `EulerIntegrator` add up acceleration, velocity and position as numbers instead of through cloned and scratch vectors, and `BodyComponent.captureOldTransform()` copies the old values directly and only re-parents the old transform when its parent changed
 
 ### Changed
 
