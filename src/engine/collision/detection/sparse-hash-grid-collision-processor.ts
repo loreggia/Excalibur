@@ -7,7 +7,7 @@ import type { Vector } from '../../math/vector';
 import { vec } from '../../math/vector';
 import { ArenaPool } from '../../util/arena-pool';
 import { BodyComponent } from '../body-component';
-import type { BoundingBox } from '../bounding-box';
+import { BoundingBox } from '../bounding-box';
 import type { Collider } from '../colliders/collider';
 import { CompositeCollider } from '../colliders/composite-collider';
 import { CollisionType } from '../collision-type';
@@ -28,6 +28,7 @@ export class HashColliderProxy extends HashGridProxy<Collider> {
   body?: BodyComponent;
   collisionType: CollisionType;
   override hasZeroBounds = false;
+  private _ownBounds = new BoundingBox();
   /**
    * left bounds x hash coordinate
    */
@@ -91,6 +92,13 @@ export class HashColliderProxy extends HashGridProxy<Collider> {
     }
     this._lastWorldVersion = version;
     return super.refreshAndCheckChanged();
+  }
+
+  /**
+   * Update bounds of the proxy, written into a box the proxy keeps rather than a new one from the collider
+   */
+  override updateBounds(): void {
+    this.bounds = this.collider.getBounds(this._ownBounds);
   }
 
   /**

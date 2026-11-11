@@ -718,6 +718,14 @@ export class PolygonCollider extends Collider {
     return new BoundingBox({ left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom });
   }
 
+  /**
+   * Writes the axis aligned bounding box for the polygon collider in world coordinates into `dest`
+   * @param dest
+   */
+  public override getBounds(dest: BoundingBox): BoundingBox {
+    return this._getWorldBounds().clone(dest);
+  }
+
   private _localBoundsDirty = true;
   private _localBounds!: BoundingBox;
   /**

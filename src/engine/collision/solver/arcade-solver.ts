@@ -4,6 +4,7 @@ import { CollisionType } from '../collision-type';
 import { Side } from '../side';
 import type { CollisionSolver } from './solver';
 import { BodyComponent } from '../body-component';
+import { BoundingBox } from '../bounding-box';
 import type { ContactBias } from './contact-bias';
 import { ContactSolveBias, HorizontalFirst, None, VerticalFirst } from './contact-bias';
 import type { PhysicsConfig } from '../physics-config';
@@ -19,6 +20,8 @@ import type { DeepRequired } from '../../util/required';
 export class ArcadeSolver implements CollisionSolver {
   directionMap = new Map<string, 'horizontal' | 'vertical'>();
   distanceMap = new Map<string, number>();
+  private _boundsA = new BoundingBox();
+  private _boundsB = new BoundingBox();
 
   constructor(public config: DeepRequired<Pick<PhysicsConfig, 'arcade'>['arcade']>) {}
 
@@ -143,7 +146,7 @@ export class ArcadeSolver implements CollisionSolver {
     const epsilon = 0.0001;
     // if bounds no longer intersect skip to the next
     // this removes jitter from overlapping/stacked solid tiles or a wall of solid tiles
-    if (!contact.colliderA.bounds.overlaps(contact.colliderB.bounds, epsilon)) {
+    if (!contact.colliderA.getBounds(this._boundsA).overlaps(contact.colliderB.getBounds(this._boundsB), epsilon)) {
       // Cancel the contact to prevent and solving
       contact.cancel();
       return;

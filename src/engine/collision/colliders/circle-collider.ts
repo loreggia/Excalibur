@@ -261,6 +261,15 @@ export class CircleCollider extends Collider {
     return this.localBounds.transform(this._globalMatrix);
   }
 
+  /**
+   * Writes the axis aligned bounding box for the circle collider in world coordinates into `dest`
+   * @param dest
+   */
+  public override getBounds(dest: BoundingBox): BoundingBox {
+    this._ensureWorld();
+    return this.localBounds.transform(this._globalMatrix, dest);
+  }
+
   private _localBoundsDirty = true;
   private _localBounds!: BoundingBox;
   /**

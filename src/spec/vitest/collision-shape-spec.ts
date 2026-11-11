@@ -1269,4 +1269,29 @@ describe('Collision Shape', () => {
       expect(sut.bounds.bottom).toEqual(0);
     });
   });
+  describe('getBounds()', () => {
+    const shapes: [string, () => ex.Collider][] = [
+      ['a circle', () => ex.Colliders.Circle(10)],
+      ['a polygon', () => ex.Colliders.Box(20, 10)],
+      ['an edge', () => ex.Colliders.Edge(ex.vec(0, 0), ex.vec(30, 10))],
+      ['a composite', () => new ex.CompositeCollider([ex.Colliders.Circle(10), ex.Colliders.Box(40, 10)])]
+    ];
+
+    for (const [name, create] of shapes) {
+      it(`writes the same box as bounds into the box it is given, for ${name}`, () => {
+        const collider = create();
+        const actor = new ex.Actor({ x: 100, y: 50, rotation: Math.PI / 6, scale: ex.vec(2, 1), collider });
+        actor.collider.update();
+        const dest = new ex.BoundingBox();
+
+        expect(collider.getBounds(dest)).toBe(dest);
+        expect(dest).toEqual(collider.bounds);
+
+        actor.pos = ex.vec(-40, 300);
+        actor.collider.update();
+
+        expect(collider.getBounds(dest)).toEqual(collider.bounds);
+      });
+    }
+  });
 });

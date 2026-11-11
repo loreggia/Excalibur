@@ -73,6 +73,26 @@ describe('A Sparse Hash Grid Broadphase', () => {
     }
   });
 
+  it('follows colliders that move from frame to frame', () => {
+    const dt = new ex.SparseHashGridCollisionProcessor({ size: 50 });
+    const colliders = [actorA.collider.get()!, actorC.collider.get()!];
+    dt.track(colliders[0]);
+    dt.track(colliders[1]);
+    const frame = () => {
+      actorC.collider.update();
+      dt.update(colliders, 16);
+      const pairs = dt.broadphase(colliders, 16);
+      dt.narrowphase([]);
+      return pairs.length;
+    };
+
+    expect(frame()).toBe(0);
+    actorC.pos = ex.vec(15, 0);
+    expect(frame()).toBe(1);
+    actorC.pos = ex.vec(1000, 0);
+    expect(frame()).toBe(0);
+  });
+
   it("finds a sleeping body's pair from its awake neighbour, whichever was tracked first", () => {
     for (const sleeperFirst of [true, false]) {
       const sleeper = new ex.Actor({ x: 0, y: 0, width: 20, height: 20, collisionType: ex.CollisionType.Active });

@@ -111,6 +111,14 @@ export abstract class Collider implements Clonable<Collider> {
   abstract get bounds(): BoundingBox;
 
   /**
+   * Writes the axis-aligned bounding box of the collider in world coordinates into `dest`, where `bounds` makes a new one
+   * @param dest
+   */
+  public getBounds(dest: BoundingBox): BoundingBox {
+    return this.bounds.clone(dest);
+  }
+
+  /**
    * Return the axis-aligned bounding box of the collision collider in local coordinates
    */
   abstract get localBounds(): BoundingBox;
