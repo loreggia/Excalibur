@@ -244,6 +244,37 @@ describe('An EventEmitter', () => {
     });
   });
 
+  it('fires a once listener added by another once listener on the next emit', () => {
+    const emitter = new ex.EventEmitter();
+    const second = vi.fn();
+    emitter.once('event', () => emitter.once('event', second));
+
+    emitter.emit('event', new FakeEvent());
+    expect(second).not.toHaveBeenCalled();
+
+    emitter.emit('event', new FakeEvent());
+    expect(second).toHaveBeenCalledTimes(1);
+
+    emitter.emit('event', new FakeEvent());
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps once listeners for an event that is emitted without any in between', () => {
+    const emitter = new ex.EventEmitter();
+    const on = vi.fn();
+    const once = vi.fn();
+    emitter.on('event', on);
+    emitter.emit('event', new FakeEvent());
+
+    emitter.once('event', once);
+    emitter.emit('event', new FakeEvent());
+    emitter.emit('event', new FakeEvent());
+
+    expect(on).toHaveBeenCalledTimes(3);
+    expect(once).toHaveBeenCalledTimes(1);
+    expect(emitter.hasListeners('event')).toBe(true);
+  });
+
   it('can listen to a handler only once', () => {
     const pubsub = new ex.EventEmitter();
 

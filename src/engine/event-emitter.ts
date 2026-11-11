@@ -101,8 +101,8 @@ export class EventEmitter<TEventMap extends EventMap = any> {
       }
     }
     const onces = this._listenersOnce[eventName];
-    this._listenersOnce[eventName] = [];
-    if (onces) {
+    if (onces && onces.length) {
+      this._listenersOnce[eventName] = [];
       for (let i = 0; i < onces.length; i++) {
         onces[i](event);
       }
