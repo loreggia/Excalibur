@@ -9,6 +9,34 @@ describe('A physics world', () => {
     expect(ex.PhysicsWorld).toBeDefined();
   });
 
+  it('hands out the same config on every read until the config is replaced', () => {
+    const sut = new ex.PhysicsWorld(ex.getDefaultPhysicsConfig());
+    const config = sut.config;
+
+    expect(sut.config).toBe(config);
+    expect(sut.config.gravity).toBe(config.gravity);
+
+    sut.config = ex.getDefaultPhysicsConfig();
+
+    expect(sut.config).not.toBe(config);
+  });
+
+  it('notifies a config change through the config it handed out, before and after the config is replaced', () => {
+    const sut = new ex.PhysicsWorld(ex.getDefaultPhysicsConfig());
+    const update = vi.fn();
+    sut.$configUpdate.subscribe(update);
+
+    sut.config.bodies.sleepEpsilon = 1;
+    sut.config.bodies.sleepEpsilon = 2;
+    expect(update).toHaveBeenCalledTimes(2);
+
+    sut.config = ex.getDefaultPhysicsConfig();
+    sut.config.substep = 4;
+
+    expect(update).toHaveBeenCalledTimes(4);
+    expect(sut.config.substep).toBe(4);
+  });
+
   it('can rayCast with default options, only 1 hit is returned, searches all groups', () => {
     const sut = TestUtils.engine();
     const actor1 = new ex.Actor({ x: 100, y: 0, width: 50, height: 50 });

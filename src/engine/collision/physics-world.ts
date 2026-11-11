@@ -14,13 +14,19 @@ export class PhysicsWorld {
 
   private _configDirty = false;
   private _config!: DeepRequired<PhysicsConfig>;
+  /** The watched view of `_config`, made once per config object: it is read many times a frame */
+  private _watchedConfig?: DeepRequired<PhysicsConfig>;
   get config(): DeepRequired<PhysicsConfig> {
-    return watchDeep(this._config, (change) => {
-      this.$configUpdate.notifyAll(change);
-    });
+    if (!this._watchedConfig) {
+      this._watchedConfig = watchDeep(this._config, (change) => {
+        this.$configUpdate.notifyAll(change);
+      });
+    }
+    return this._watchedConfig;
   }
   set config(newConfig: DeepRequired<PhysicsConfig>) {
     this._config = newConfig;
+    this._watchedConfig = undefined;
     this.$configUpdate.notifyAll(newConfig);
   }
 
