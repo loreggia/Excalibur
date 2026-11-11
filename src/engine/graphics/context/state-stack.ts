@@ -28,7 +28,8 @@ export class StateStack {
   private _cloneState(dest: ContextState) {
     dest.opacity = this.current.opacity;
     dest.z = this.current.z;
-    dest.tint = this.current.tint?.clone();
+    // shared with the saved state: the engine replaces a tint by assignment, never changes one in place
+    dest.tint = this.current.tint;
     dest.material = this.current.material; // TODO is this going to cause problems when cloning
     return dest;
   }

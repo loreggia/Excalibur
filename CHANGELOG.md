@@ -32,6 +32,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: `EventEmitter.emit` no longer replaces the list of once listeners with a new empty array on every emit, only when there were once listeners to fire
 - Perf: `GraphicsSystem` walks up an entity's parents to apply their transforms and opacity, instead of building an array of its ancestors twice per entity every frame
 - Perf: `OffscreenSystem` transforms each entity's bounds into a box it keeps; `BoundingBox.transform` reads the translation straight off the matrix instead of through a new vector; a `BoundingBox` creates the array for `getPoints()` on first use
+- Perf: the graphics context's `save()` shares the current tint with the saved state instead of cloning it. Assigning `ctx.tint = color` after a `save()` works as before; changing the components of `ctx.tint` in place (`ctx.tint.a = 0.5`) now also changes the saved state's tint, so assign a new color instead
 
 ### Changed
 
