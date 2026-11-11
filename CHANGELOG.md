@@ -23,6 +23,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Updates
 
+- Perf: `CollisionSystem` no longer copies its list of colliders once per composite collider every frame, which made collider bookkeeping quadratic in the number of composite colliders (a tile map with solid tiles is one). The list is also reused between frames
 
 ### Changed
 
