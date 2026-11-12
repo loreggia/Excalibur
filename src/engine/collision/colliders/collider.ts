@@ -106,6 +106,17 @@ export abstract class Collider implements Clonable<Collider> {
   abstract get center(): Vector;
 
   /**
+   * Writes the world space center of the collider into `dest` and returns it, same value as {@apilink Collider.center}
+   * without allocating a new vector. Built in colliders override this, the default falls back to the `center` getter.
+   * @param dest Vector to receive the result
+   */
+  public getCenter(dest: Vector): Vector {
+    const center = this.center;
+    dest.setTo(center.x, center.y);
+    return dest;
+  }
+
+  /**
    * Return the axis-aligned bounding box of the collision collider in world coordinates
    */
   abstract get bounds(): BoundingBox;

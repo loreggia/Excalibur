@@ -40,6 +40,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: `TileMap` draws from a list of on screen tiles it keeps, and finds the corners of the screen in tile coordinates without temporary vectors. `getOnScreenTiles()` still returns a new array
 - Perf: `Screen.getWorldBounds()` works the box out directly while the camera is not rotated, rather than through a box per step
 - Perf: `GraphicsComponent` without a graphic keeps one empty box for its `localBounds`, which it recalculated into a new box on every read
+- Added `Collider.getCenter(dest)`, which writes the world space center into a vector it is given where `Collider.center` makes a new one. Circle, polygon and edge colliders do it without allocating (an edge no longer transforms both ends into new vectors to average them), and the realistic solver uses it for the lever arms of every contact
 
 ### Changed
 

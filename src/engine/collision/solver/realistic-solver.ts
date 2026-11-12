@@ -1,7 +1,7 @@
 import { CollisionPostSolveEvent, CollisionPreSolveEvent, PostCollisionEvent, PreCollisionEvent } from '../../events';
 import { clamp } from '../../math/util';
 import { vec } from '../../math/vector';
-import type { Vector } from '../../math/vector';
+import { Vector } from '../../math/vector';
 import type { CollisionContact } from '../detection/collision-contact';
 import { CollisionType } from '../collision-type';
 import { ContactConstraintPoint } from './contact-constraint-point';
@@ -25,6 +25,8 @@ export class RealisticSolver implements CollisionSolver {
   directionMap = new Map<string, 'horizontal' | 'vertical'>();
   distanceMap = new Map<string, number>();
   private _currentContactIds = new Set<string>();
+  private _centerAScratch = new Vector(0, 0);
+  private _centerBScratch = new Vector(0, 0);
 
   constructor(public config: DeepRequired<Pick<PhysicsConfig, 'realistic'>['realistic']>) {}
   lastFrameContacts: Map<string, CollisionContact> = new Map();
@@ -166,8 +168,8 @@ export class RealisticSolver implements CollisionSolver {
         const tY = tangent._y;
 
         // Lever arms are measured from the collider centers, the same origin the impulses are applied about
-        const centerA = colliderA.center as unknown as UnsafeVector;
-        const centerB = colliderB.center as unknown as UnsafeVector;
+        const centerA = colliderA.getCenter(this._centerAScratch) as unknown as UnsafeVector;
+        const centerB = colliderB.getCenter(this._centerBScratch) as unknown as UnsafeVector;
         const cAX = centerA._x;
         const cAY = centerA._y;
         const cBX = centerB._x;

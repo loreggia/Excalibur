@@ -1294,4 +1294,45 @@ describe('Collision Shape', () => {
       });
     }
   });
+  describe('getCenter()', () => {
+    const shapes: [string, () => ex.Collider][] = [
+      ['a circle', () => ex.Colliders.Circle(10, ex.vec(5, -5))],
+      ['a polygon', () => ex.Colliders.Box(20, 10, ex.Vector.Half, ex.vec(5, -5))],
+      ['an edge', () => ex.Colliders.Edge(ex.vec(0, 0), ex.vec(30, 10))],
+      ['a composite', () => new ex.CompositeCollider([ex.Colliders.Circle(10), ex.Colliders.Box(40, 10)])]
+    ];
+
+    for (const [name, create] of shapes) {
+      it(`writes the same point as center into the vector it is given, for ${name}`, () => {
+        const collider = create();
+        const actor = new ex.Actor({ x: 100, y: 50, rotation: Math.PI / 6, scale: ex.vec(2, 1), collider });
+        actor.collider.update();
+        const dest = new ex.Vector(0, 0);
+
+        expect(collider.getCenter(dest)).toBe(dest);
+        expect(dest.x).toBeCloseTo(collider.center.x, 10);
+        expect(dest.y).toBeCloseTo(collider.center.y, 10);
+
+        actor.pos = ex.vec(-40, 300);
+        actor.collider.update();
+
+        collider.getCenter(dest);
+        expect(dest.x).toBeCloseTo(collider.center.x, 10);
+        expect(dest.y).toBeCloseTo(collider.center.y, 10);
+      });
+    }
+
+    it('puts an edge center halfway between its transformed ends', () => {
+      const edge = ex.Colliders.Edge(ex.vec(0, 0), ex.vec(30, 10));
+      const actor = new ex.Actor({ x: 100, y: 50, rotation: Math.PI / 6, scale: ex.vec(2, 1), collider: edge });
+      actor.collider.update();
+      const begin = actor.transform.apply(edge.begin);
+      const end = actor.transform.apply(edge.end);
+
+      const center = edge.getCenter(new ex.Vector(0, 0));
+
+      expect(center.x).toBeCloseTo((begin.x + end.x) / 2, 10);
+      expect(center.y).toBeCloseTo((begin.y + end.y) / 2, 10);
+    });
+  });
 });

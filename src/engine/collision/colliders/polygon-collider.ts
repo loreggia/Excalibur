@@ -380,8 +380,13 @@ export class PolygonCollider extends Collider {
    * Get the center of the collider in world coordinates
    */
   public get center(): Vector {
+    return this.getCenter(new Vector(0, 0));
+  }
+
+  public override getCenter(dest: Vector): Vector {
     const bounds = this._getWorldBounds();
-    return new Vector((bounds.left + bounds.right) / 2, (bounds.top + bounds.bottom) / 2);
+    dest.setTo((bounds.left + bounds.right) / 2, (bounds.top + bounds.bottom) / 2);
+    return dest;
   }
 
   private _transformedPointsDirty = true;
