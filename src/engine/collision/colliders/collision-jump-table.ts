@@ -76,6 +76,8 @@ function clipScratchSegment(dirX: number, dirY: number, length: number): boolean
 }
 const ScratchNormal = Vector.Zero; // TODO constant vector
 const ScratchMatrix = AffineMatrix.identity();
+const ScratchCenterA = new Vector(0, 0);
+const ScratchCenterB = new Vector(0, 0);
 
 export const CollisionJumpTable = {
   CollideCircleCircle(circleA: CircleCollider, circleB: CircleCollider): CollisionContact[] {
@@ -359,14 +361,13 @@ export const CollisionJumpTable = {
       }
     }
 
-    // separation.axis lives in the pooled SeparationInfo, copy it so the contact owns its normal
-    let normal = separation.axis.clone();
-    // Point Contact A -> B
-    const centerA = polyA.center;
-    const centerB = polyB.center;
-    if ((centerB.x - centerA.x) * normal.x + (centerB.y - centerA.y) * normal.y < 0) {
-      normal = normal.negate();
-    }
+    // Point Contact A -> B, centers go into scratch vectors since only their difference is needed
+    const centerA = colliderA.getCenter(ScratchCenterA);
+    const centerB = colliderB.getCenter(ScratchCenterB);
+    const axis = separation.axis;
+    const sign = (centerB.x - centerA.x) * axis.x + (centerB.y - centerA.y) * axis.y < 0 ? -1 : 1;
+    // separation.axis lives in the pooled SeparationInfo, copy it (oriented A -> B) so the contact owns its normal
+    const normal = new Vector(sign * axis.x, sign * axis.y);
     const tangent = normal.perpendicular();
     return [
       new CollisionContact(colliderA, colliderB, normal.scale(-separation.separation), normal, tangent, points, localPoints, separation)

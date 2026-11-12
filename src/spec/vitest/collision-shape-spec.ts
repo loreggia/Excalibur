@@ -1335,4 +1335,24 @@ describe('Collision Shape', () => {
       expect(center.y).toBeCloseTo((begin.y + end.y) / 2, 10);
     });
   });
+  describe('polygon contacts', () => {
+    for (const flipped of [false, true]) {
+      it(`point their normal from A to B and own it${flipped ? ', with the colliders swapped' : ''}`, () => {
+        const actorA = new ex.Actor({ x: 0, y: 0, width: 20, height: 20 });
+        const actorB = new ex.Actor({ x: 15, y: 2, width: 20, height: 20 });
+        actorA.collider.update();
+        actorB.collider.update();
+        const a = (flipped ? actorB : actorA).collider.get() as ex.PolygonCollider;
+        const b = (flipped ? actorA : actorB).collider.get() as ex.PolygonCollider;
+
+        const [contact] = ex.CollisionJumpTable.CollidePolygonPolygon(a, b);
+
+        const aToB = b.center.sub(a.center);
+        expect(contact.normal.dot(aToB)).toBeGreaterThan(0);
+        expect(contact.normal).not.toBe(contact.info.axis);
+        expect(contact.tangent).toBeVector(contact.normal.perpendicular());
+        expect(contact.mtv).toBeVector(contact.normal.scale(-contact.info.separation));
+      });
+    }
+  });
 });
