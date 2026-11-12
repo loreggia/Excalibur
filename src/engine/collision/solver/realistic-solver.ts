@@ -21,12 +21,77 @@ import { ContactSolveBias, HorizontalFirst, None, VerticalFirst } from './contac
  */
 type UnsafeVector = { _x: number; _y: number };
 
+/**
+ * How one body of a contact responds to impulses, read once per contact so the solver's inner loops are plain number
+ * math: a call the optimizer does not inline boxes its number arguments
+ */
+class BodyResponse {
+  /** Only active bodies move, the others are read but never written back */
+  active = false;
+  /** Inverse mass along x and y, 0 on a locked axis */
+  invMassX = 0;
+  invMassY = 0;
+  /** Inverse inertia, 0 when rotation is locked */
+  invInertia = 0;
+  velX = 0;
+  velY = 0;
+  angularVelocity = 0;
+
+  load(body: BodyComponent): this {
+    const vel = body.vel;
+    this.velX = vel.x;
+    this.velY = vel.y;
+    this.angularVelocity = body.angularVelocity;
+    this.active = body.collisionType === CollisionType.Active;
+    if (!this.active) {
+      this.invMassX = 0;
+      this.invMassY = 0;
+      this.invInertia = 0;
+      return this;
+    }
+    const inverseMass = body.inverseMass;
+    const inverseInertia = body.inverseInertia;
+    const dof = body.limitDegreeOfFreedom;
+    if (dof.length === 0) {
+      this.invMassX = inverseMass;
+      this.invMassY = inverseMass;
+      this.invInertia = inverseInertia;
+    } else {
+      this.invMassX = dof.includes(DegreeOfFreedom.X) ? 0 : inverseMass;
+      this.invMassY = dof.includes(DegreeOfFreedom.Y) ? 0 : inverseMass;
+      this.invInertia = dof.includes(DegreeOfFreedom.Rotation) ? 0 : inverseInertia;
+    }
+    return this;
+  }
+
+  /**
+   * Same result as `body.applyImpulseAtOffset(offsetX, offsetY, impulseX, impulseY)` on the loaded values
+   */
+  applyImpulseAtOffset(offsetX: number, offsetY: number, impulseX: number, impulseY: number) {
+    this.velX += impulseX * this.invMassX;
+    this.velY += impulseY * this.invMassY;
+    this.angularVelocity += this.invInertia * (offsetX * impulseY - offsetY * impulseX);
+  }
+
+  store(body: BodyComponent) {
+    if (!this.active) {
+      return;
+    }
+    const vel = body.vel;
+    vel.x = this.velX;
+    vel.y = this.velY;
+    body.angularVelocity = this.angularVelocity;
+  }
+}
+
 export class RealisticSolver implements CollisionSolver {
   directionMap = new Map<string, 'horizontal' | 'vertical'>();
   distanceMap = new Map<string, number>();
   private _currentContactIds = new Set<string>();
   private _centerAScratch = new Vector(0, 0);
   private _centerBScratch = new Vector(0, 0);
+  private _responseA = new BodyResponse();
+  private _responseB = new BodyResponse();
 
   constructor(public config: DeepRequired<Pick<PhysicsConfig, 'realistic'>['realistic']>) {}
   lastFrameContacts: Map<string, CollisionContact> = new Map();
@@ -326,22 +391,28 @@ export class RealisticSolver implements CollisionSolver {
       if (!contactPoints) {
         continue;
       }
+      if (!warm) {
+        for (let j = 0; j < contactPoints.length; j++) {
+          contactPoints[j].normalImpulse = 0;
+          contactPoints[j].tangentImpulse = 0;
+        }
+        continue;
+      }
       const normal = contact.normal as unknown as UnsafeVector;
       const tangent = contact.tangent as unknown as UnsafeVector;
+      const responseA = this._responseA.load(bodyA);
+      const responseB = this._responseB.load(bodyB);
       for (let j = 0; j < contactPoints.length; j++) {
         const point = contactPoints[j];
-        if (warm) {
-          const impulseX = normal._x * point.normalImpulse + tangent._x * point.tangentImpulse;
-          const impulseY = normal._y * point.normalImpulse + tangent._y * point.tangentImpulse;
-          const rA = point.aToContact as unknown as UnsafeVector;
-          const rB = point.bToContact as unknown as UnsafeVector;
-          bodyA.applyImpulseAtOffset(rA._x, rA._y, -impulseX, -impulseY);
-          bodyB.applyImpulseAtOffset(rB._x, rB._y, impulseX, impulseY);
-        } else {
-          point.normalImpulse = 0;
-          point.tangentImpulse = 0;
-        }
+        const impulseX = normal._x * point.normalImpulse + tangent._x * point.tangentImpulse;
+        const impulseY = normal._y * point.normalImpulse + tangent._y * point.tangentImpulse;
+        const rA = point.aToContact as unknown as UnsafeVector;
+        const rB = point.bToContact as unknown as UnsafeVector;
+        responseA.applyImpulseAtOffset(rA._x, rA._y, -impulseX, -impulseY);
+        responseB.applyImpulseAtOffset(rB._x, rB._y, impulseX, impulseY);
       }
+      responseA.store(bodyA);
+      responseB.store(bodyB);
     }
   }
 
@@ -470,20 +541,20 @@ export class RealisticSolver implements CollisionSolver {
         const nY = normal._y;
         const tX = tangent._x;
         const tY = tangent._y;
-        // velocity vectors are mutated in place by applyImpulseAtOffset so these stay valid for the contact
-        const velA = bodyA.vel as unknown as UnsafeVector;
-        const velB = bodyB.vel as unknown as UnsafeVector;
+        // velocities are worked on as numbers for the whole contact and written back once at the end
+        const responseA = this._responseA.load(bodyA);
+        const responseB = this._responseB.load(bodyB);
 
         // Friction constraint
         for (let k = 0; k < constraints.length; k++) {
           const point = constraints[k];
           const rA = point.aToContact as unknown as UnsafeVector;
           const rB = point.bToContact as unknown as UnsafeVector;
-          const wA = bodyA.angularVelocity;
-          const wB = bodyB.angularVelocity;
+          const wA = responseA.angularVelocity;
+          const wB = responseB.angularVelocity;
           // relative velocity at the contact point, w x r = (-w * r.y, w * r.x)
-          const relX = velB._x - wB * rB._y - (velA._x - wA * rA._y);
-          const relY = velB._y + wB * rB._x - (velA._y + wA * rA._x);
+          const relX = responseB.velX - wB * rB._y - (responseA.velX - wA * rA._y);
+          const relY = responseB.velY + wB * rB._x - (responseA.velY + wA * rA._x);
 
           // Negate velocity in tangent direction to simulate friction
           const tangentVelocity = -(relX * tX + relY * tY);
@@ -500,8 +571,8 @@ export class RealisticSolver implements CollisionSolver {
 
           const impulseX = tX * impulseDelta;
           const impulseY = tY * impulseDelta;
-          bodyA.applyImpulseAtOffset(rA._x, rA._y, -impulseX, -impulseY);
-          bodyB.applyImpulseAtOffset(rB._x, rB._y, impulseX, impulseY);
+          responseA.applyImpulseAtOffset(rA._x, rA._y, -impulseX, -impulseY);
+          responseB.applyImpulseAtOffset(rB._x, rB._y, impulseX, impulseY);
         }
 
         // Bounce constraint
@@ -510,10 +581,10 @@ export class RealisticSolver implements CollisionSolver {
           const rA = point.aToContact as unknown as UnsafeVector;
           const rB = point.bToContact as unknown as UnsafeVector;
           // Need to recalc relative velocity because the previous step could have changed vel
-          const wA = bodyA.angularVelocity;
-          const wB = bodyB.angularVelocity;
-          const relX = velB._x - wB * rB._y - (velA._x - wA * rA._y);
-          const relY = velB._y + wB * rB._x - (velA._y + wA * rA._x);
+          const wA = responseA.angularVelocity;
+          const wB = responseB.angularVelocity;
+          const relX = responseB.velX - wB * rB._y - (responseA.velX - wA * rA._y);
+          const relY = responseB.velY + wB * rB._x - (responseA.velY + wA * rA._x);
 
           // Compute impulse in normal direction
           const normalVelocity = relX * nX + relY * nY;
@@ -531,9 +602,11 @@ export class RealisticSolver implements CollisionSolver {
 
           const impulseX = nX * impulseDelta;
           const impulseY = nY * impulseDelta;
-          bodyA.applyImpulseAtOffset(rA._x, rA._y, -impulseX, -impulseY);
-          bodyB.applyImpulseAtOffset(rB._x, rB._y, impulseX, impulseY);
+          responseA.applyImpulseAtOffset(rA._x, rA._y, -impulseX, -impulseY);
+          responseB.applyImpulseAtOffset(rB._x, rB._y, impulseX, impulseY);
         }
+        responseA.store(bodyA);
+        responseB.store(bodyB);
       }
     }
   }

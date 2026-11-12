@@ -43,6 +43,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Added `Collider.getCenter(dest)`, which writes the world space center into a vector it is given where `Collider.center` makes a new one. Circle, polygon and edge colliders do it without allocating (an edge no longer transforms both ends into new vectors to average them), and the realistic solver uses it for the lever arms of every contact
 - Perf: polygon contacts read both collider centers into scratch vectors and build their normal, pointing from A to B, as one new vector instead of cloning the separation axis and negating the clone
 - Perf: `ArcadeSolver.solvePosition` and `solveVelocity` work as numbers. `solveVelocity` no longer normalizes, negates and scales the velocities and normal into new vectors per contact, the adjusted velocity is still assigned as a new vector
+- Perf: `RealisticSolver` warm starts and solves velocities on each contact's two bodies as numbers, read once per contact and written back after it, instead of calling `BodyComponent.applyImpulseAtOffset` for every point. That function is too big for V8 to inline at all four call sites, and every call it did not inline boxed its four number arguments
 
 ### Changed
 
