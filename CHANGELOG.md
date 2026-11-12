@@ -20,6 +20,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed issue with multiline text where lines were drawn too close to together if lineHeight wasn't explicitly set
 - Fixed issue with JSON parse round tripping through JSON when null/NaN/Infinite
 - Fixed issue with GraphicsComponent serialization not correctly restoring graphics
+- Fixed `Transform.globalPos = v` replacing the transform's `pos` vector with a plain one: changes made to `pos` afterwards no longer flagged the transform dirty, so its matrix and `globalPos` could stay stale
 
 ### Updates
 

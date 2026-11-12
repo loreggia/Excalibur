@@ -393,4 +393,27 @@ describe('A TransformComponent', () => {
     // Should have a new owner
     expect(sut.owner).toBe(clone);
   });
+
+  for (const withParent of [false, true]) {
+    it(`still sees changes to pos after globalPos is assigned${withParent ? ', with a parent' : ''}`, () => {
+      const parent = new ex.Entity([new TransformComponent()]);
+      const child = new ex.Entity([new TransformComponent()]);
+      const parentTx = parent.get(TransformComponent);
+      const childTx = child.get(TransformComponent);
+      if (withParent) {
+        parent.addChild(child);
+        parentTx.pos = ex.vec(100, 0);
+      }
+      const pos = childTx.pos;
+
+      childTx.globalPos = ex.vec(150, 20);
+      expect(childTx.get().matrix.data[4]).toBeCloseTo(150, 10);
+
+      // pos is still the vector handed out before, and changing it still moves the transform
+      expect(childTx.pos).toBe(pos);
+      childTx.pos.x = withParent ? 70 : 170;
+      expect(childTx.get().matrix.data[4]).toBeCloseTo(170, 10);
+      expect(childTx.globalPos.x).toBeCloseTo(170, 10);
+    });
+  }
 });

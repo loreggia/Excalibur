@@ -48,8 +48,8 @@ export class Transform {
       localPos = this.parent.inverse.multiply(v);
     }
     if (!localPos.equals(this._pos)) {
-      this._pos = localPos;
-      this.flagDirty();
+      // through the watch vector, which flags the transform dirty, so pos stays watched
+      this._pos.setTo(localPos.x, localPos.y);
     }
   }
   private _globalPos = new VectorView({
