@@ -8,6 +8,12 @@ import { WatchVector } from './watch-vector';
 /** Never mutated, copied into a matrix to reset it including its scale signs */
 const IDENTITY = AffineMatrix.identity();
 
+/**
+ * The plain vectors behind {@apilink Transform.pos} and {@apilink Transform.scale}, read directly since a getter the
+ * optimizer does not inline boxes the number it returns. Every write goes through the watch vector, so they are current
+ */
+type UnsafeVector = { _x: Vector['_x']; _y: Vector['_y'] };
+
 export class Transform {
   private _parent: Transform | null = null;
   get parent() {
@@ -31,7 +37,7 @@ export class Transform {
   }
   private _children: Transform[] = [];
 
-  private _pos: Vector = new WatchVector(vec(0, 0), () => {
+  private _pos: WatchVector = new WatchVector(vec(0, 0), () => {
     this.flagDirty();
   });
   set pos(v: Vector) {
@@ -113,7 +119,7 @@ export class Transform {
     return this.rotation;
   }
 
-  private _scale: Vector = new WatchVector(vec(1, 1), () => {
+  private _scale: WatchVector = new WatchVector(vec(1, 1), () => {
     this.flagDirty();
   });
   set scale(v: Vector) {
@@ -235,9 +241,11 @@ export class Transform {
     this._scratch.data[1] = this._sin;
     this._scratch.data[2] = -this._sin;
     this._scratch.data[3] = this._cos;
-    this._scratch.data[4] = this._pos.x;
-    this._scratch.data[5] = this._pos.y;
-    this._scratch.scale(this._scale.x, this._scale.y);
+    const pos = this._pos.original as unknown as UnsafeVector;
+    const scale = this._scale.original as unknown as UnsafeVector;
+    this._scratch.data[4] = pos._x;
+    this._scratch.data[5] = pos._y;
+    this._scratch.scale(scale._x, scale._y);
     return this._scratch;
   }
 
@@ -293,10 +301,12 @@ export class Transform {
    */
   public clone(dest?: Transform): Transform {
     const target = dest ?? new Transform();
-    this._pos.clone(target._pos);
+    const pos = this._pos.original as unknown as UnsafeVector;
+    const scale = this._scale.original as unknown as UnsafeVector;
+    target._pos.setTo(pos._x, pos._y);
     target._z = this._z;
     target._rotation = this._rotation;
-    this._scale.clone(target._scale);
+    target._scale.setTo(scale._x, scale._y);
     target.flagDirty();
     return target;
   }
@@ -306,10 +316,12 @@ export class Transform {
    */
   public cloneWithParent(dest?: Transform): Transform {
     const target = dest ?? new Transform();
-    this._pos.clone(target._pos);
+    const pos = this._pos.original as unknown as UnsafeVector;
+    const scale = this._scale.original as unknown as UnsafeVector;
+    target._pos.setTo(pos._x, pos._y);
     target._z = this._z;
     target._rotation = this._rotation;
-    this._scale.clone(target._scale);
+    target._scale.setTo(scale._x, scale._y);
     target.parent = this.parent;
     target.flagDirty();
     return target;
