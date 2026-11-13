@@ -534,6 +534,60 @@ describe('A Material', () => {
     });
   });
 
+  it('sets u_uv_min and u_uv_max to the drawn region of the graphic', async () => {
+    const tex = new ex.ImageSource('/src/spec/assets/images/material-renderer-spec/sword.png');
+    await tex.load();
+
+    // writes the uniform picked by `expression` as (r, g)
+    const drawUv = (expression: string) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 100;
+      canvas.height = 100;
+      const context = new ex.ExcaliburGraphicsContextWebGL({
+        canvasElement: canvas,
+        backgroundColor: ex.Color.Black,
+        antialiasing: false,
+        snapToPixel: false
+      });
+      context.updateViewport({ width: 100, height: 100 });
+      const material = context.createMaterial({
+        name: 'uv-rect',
+        fragmentSource: `#version 300 es
+      precision highp float;
+      uniform vec2 u_uv_min;
+      uniform vec2 u_uv_max;
+      out vec4 fragColor;
+      void main() {
+        fragColor = vec4(${expression}, 0.0, 1.0);
+      }`
+      });
+
+      context.clear();
+      context.save();
+      context.material = material;
+      // the middle half of the sword
+      context.drawImage(tex.image, tex.width / 4, tex.height / 4, tex.width / 2, tex.height / 2, 0, 0, 100, 100);
+      context.flush();
+      context.restore();
+
+      const copy = document.createElement('canvas');
+      copy.width = 100;
+      copy.height = 100;
+      const ctx2d = copy.getContext('2d')!;
+      ctx2d.drawImage(canvas, 0, 0);
+      const pixel = ctx2d.getImageData(50, 50, 1, 1).data;
+      context.dispose();
+      return pixel;
+    };
+
+    const min = drawUv('u_uv_min');
+    const max = drawUv('u_uv_max');
+    expect(min[0]).toBeCloseTo(0.25 * 255, -1);
+    expect(min[1]).toBeCloseTo(0.25 * 255, -1);
+    expect(max[0]).toBeCloseTo(0.75 * 255, -1);
+    expect(max[1]).toBeCloseTo(0.75 * 255, -1);
+  });
+
   describe('screen uvs', () => {
     const readPixel = (canvas: HTMLCanvasElement, x: number, y: number) => {
       const copy = document.createElement('canvas');

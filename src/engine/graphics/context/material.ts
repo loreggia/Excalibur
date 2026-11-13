@@ -88,6 +88,8 @@ type MaterialShaderOptions =
        * * `uniform vec2 u_resolution` - The current resolution of the screen (in pixels)
        * * `uniform vec2 u_graphic_resolution` - The current resolution of the graphic (in pixels)
        * * `uniform vec2 u_size;` - The current size of the graphic (in pixels)
+       * * `uniform vec2 u_uv_min` - The top-left UV of the drawn region in `u_graphic`, so a sprite from a sheet can tell its own edges
+       * * `uniform vec2 u_uv_max` - The bottom-right UV of the drawn region in `u_graphic`
        * * `uniform vec4 u_color` - The current color of the material
        * * `uniform float u_opacity` - The current opacity of the graphics context
        * * `uniform float u_time_ms` - The current time in milliseconds
@@ -207,6 +209,8 @@ export class Material {
     'u_resolution',
     'u_graphic_resolution',
     'u_size',
+    'u_uv_min',
+    'u_uv_max',
     'u_matrix',
     'u_transform',
     'u_graphic',
