@@ -267,6 +267,10 @@ export class MaterialRenderer implements RendererPlugin {
 
     shader.trySetUniformFloatVector('u_size', vec(sizeX, sizeY));
 
+    shader.trySetUniformFloatVector('u_uv_min', vec(uvx0, uvy0));
+
+    shader.trySetUniformFloatVector('u_uv_max', vec(uvx1, uvy1));
+
     shader.trySetUniformMatrix('u_matrix', this._context.ortho);
 
     shader.trySetUniformMatrix('u_transform', transform.to4x4());

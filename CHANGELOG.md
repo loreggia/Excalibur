@@ -14,6 +14,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Added the `u_uv_min` and `u_uv_max` built-in material uniforms, the UV rectangle of the drawn region in `u_graphic`. A material on a sprite from a sheet can use them to find the sprite's own edges instead of the sheet's
 
 ### Fixed
 
