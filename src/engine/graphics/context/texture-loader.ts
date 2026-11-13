@@ -75,8 +75,6 @@ export class TextureLoader {
       return null;
     }
 
-    const { filtering, wrapping } = { ...options };
-
     let tex: WebGLTexture | null = null;
     // If reuse the texture if it's from the same source
     if (this.has(image)) {
@@ -92,6 +90,9 @@ export class TextureLoader {
       this._garbageCollector?.garbageCollector.touch(image);
       return tex;
     }
+
+    const filtering = options?.filtering;
+    const wrapping = options?.wrapping;
 
     // No texture exists create a new one
     tex = gl.createTexture();

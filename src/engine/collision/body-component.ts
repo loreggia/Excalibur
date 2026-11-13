@@ -71,6 +71,19 @@ export class BodyComponent extends Component implements Clonable<BodyComponent> 
 
   public island: Island | null = null;
 
+  /**
+   * Union-find parent while contact islands are built, valid only in the build {@apilink BodyComponent.__islandBuild}
+   * names
+   * @internal
+   */
+  public __islandParent: BodyComponent | null = null;
+
+  /**
+   * The contact island build that last touched this body
+   * @internal
+   */
+  public __islandBuild = -1;
+
   public oldTransform = new Transform();
 
   /**

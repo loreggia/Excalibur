@@ -5,7 +5,14 @@ export class Island {
   bodies: BodyComponent[] = [];
   contacts: CollisionContact[] = [];
   isSleeping = false;
-  constructor(public config: BodyConfig) {}
+  /**
+   * @param config
+   * @param build The {@apilink buildContactIslands} call that made this island
+   */
+  constructor(
+    public config: BodyConfig,
+    public readonly build = -1
+  ) {}
   wake() {
     this.isSleeping = false;
     for (const body of this.bodies) {
@@ -63,70 +70,76 @@ export class Island {
   }
 }
 
+let islandBuild = 0;
+
+/**
+ * Union-find root of the body in the given build, a body the build has not touched yet is its own root
+ */
+function findRoot(body: BodyComponent, build: number): BodyComponent {
+  if (body.__islandBuild !== build) {
+    body.__islandBuild = build;
+    body.__islandParent = body;
+    return body;
+  }
+  let root = body;
+  while (root.__islandParent !== root) {
+    root = root.__islandParent!;
+  }
+  // path compression
+  while (body !== root) {
+    const next = body.__islandParent!;
+    body.__islandParent = root;
+    body = next;
+  }
+  return root;
+}
+
 export function buildContactIslands(config: BodyConfig, bodies: BodyComponent[], contacts: CollisionContact[]): Island[] {
-  // Union-find to group connected bodies
-  const parent = new Map<BodyComponent, BodyComponent>();
+  const build = ++islandBuild;
 
-  function find(body: BodyComponent) {
-    if (!parent.has(body)) {
-      parent.set(body, body);
-    }
-    if (parent.get(body) !== body) {
-      parent.set(body, find(parent.get(body)!)!);
-    }
-    return parent.get(body);
-  }
-
-  function union(bodyA: BodyComponent, bodyB: BodyComponent) {
-    const rootA = find(bodyA);
-    const rootB = find(bodyB);
-    if (rootA !== rootB) {
-      parent.set(rootA!, rootB!);
+  // Connect active bodies through contacts
+  for (let i = 0; i < contacts.length; i++) {
+    const contact = contacts[i];
+    if (contact.bodyA?.collisionType === CollisionType.Active && contact.bodyB?.collisionType === CollisionType.Active) {
+      const rootA = findRoot(contact.bodyA, build);
+      const rootB = findRoot(contact.bodyB, build);
+      if (rootA !== rootB) {
+        rootA.__islandParent = rootB;
+      }
     }
   }
 
-  const bodyToContacts = new Map<BodyComponent, CollisionContact[]>();
-  // Connect bodies through contacts
-  for (const contact of contacts) {
-    if (contact?.bodyA?.collisionType === CollisionType.Active && contact?.bodyB?.collisionType === CollisionType.Active) {
-      union(contact.bodyA, contact.bodyB);
-    }
-
-    if (!bodyToContacts.has(contact.bodyA!)) {
-      bodyToContacts.set(contact.bodyA!, []);
-    }
-
-    if (!bodyToContacts.has(contact.bodyB!)) {
-      bodyToContacts.set(contact.bodyB!, []);
-    }
-
-    if (contact?.bodyA?.collisionType === CollisionType.Active) {
-      bodyToContacts.get(contact.bodyA!)!.push(contact);
-    }
-
-    if (contact?.bodyB?.collisionType === CollisionType.Active) {
-      bodyToContacts.get(contact.bodyB!)!.push(contact);
-    }
-  }
-
-  // Group bodies by island
-  const islandMap = new Map<BodyComponent, BodyComponent[]>();
-  for (const body of bodies) {
+  // Group active bodies by island, a root's island is the one made in this build
+  const islands: Island[] = [];
+  for (let i = 0; i < bodies.length; i++) {
+    const body = bodies[i];
     if (body.collisionType !== CollisionType.Active) {
       continue;
     }
-    const root = find(body);
-    if (!islandMap.has(root!)) {
-      islandMap.set(root!, []);
+    const root = findRoot(body, build);
+    let island = root.island;
+    if (!island || island.build !== build) {
+      island = new Island(config, build);
+      islands.push(island);
+      root.island = island;
     }
-    islandMap.get(root!)!.push(body);
+    island.bodies.push(body);
+    body.island = island;
   }
 
-  return Array.from(islandMap.values()).map((bodies) => {
-    const island = new Island(config);
-    island.bodies = bodies;
-    bodies.forEach((b) => (b.island = island));
-    island.contacts = Array.from(new Set(bodies.flatMap((b) => bodyToContacts.get(b)!)));
-    return island;
-  });
+  // A contact belongs to the island of its active body, both are in the same one when both are active
+  for (let i = 0; i < contacts.length; i++) {
+    const contact = contacts[i];
+    const body =
+      contact.bodyA?.collisionType === CollisionType.Active
+        ? contact.bodyA
+        : contact.bodyB?.collisionType === CollisionType.Active
+          ? contact.bodyB
+          : null;
+    if (body?.island?.build === build) {
+      body.island.contacts.push(contact);
+    }
+  }
+
+  return islands;
 }

@@ -638,24 +638,23 @@ export class ExcaliburGraphicsContextWebGL implements ExcaliburGraphicsContext {
     this._postProcessTargets[1].resize(gl.canvas.width, gl.canvas.height);
   }
 
-  private _imageToWidth = new Map<HTMLImageSource, number>();
-  private _getImageWidth(image: HTMLImageSource) {
-    let maybeWidth = this._imageToWidth.get(image);
-    if (maybeWidth === undefined) {
-      maybeWidth = image.width;
-      this._imageToWidth.set(image, maybeWidth);
+  /**
+   * Each image's size as read in the current generation, one record per image reused across frames. Bumping the
+   * generation has every size read again
+   */
+  private _imageSizes = new WeakMap<HTMLImageSource, { generation: number; width: number; height: number }>();
+  private _imageSizeGeneration = 0;
+  private _getImageSize(image: HTMLImageSource) {
+    let size = this._imageSizes.get(image);
+    if (size === undefined) {
+      size = { generation: this._imageSizeGeneration, width: image.width, height: image.height };
+      this._imageSizes.set(image, size);
+    } else if (size.generation !== this._imageSizeGeneration) {
+      size.generation = this._imageSizeGeneration;
+      size.width = image.width;
+      size.height = image.height;
     }
-    return maybeWidth;
-  }
-
-  private _imageToHeight = new Map<HTMLImageSource, number>();
-  private _getImageHeight(image: HTMLImageSource) {
-    let maybeHeight = this._imageToHeight.get(image);
-    if (maybeHeight === undefined) {
-      maybeHeight = image.height;
-      this._imageToHeight.set(image, maybeHeight);
-    }
-    return maybeHeight;
+    return size;
   }
 
   drawImage(image: HTMLImageSource, x: number, y: number): void;
@@ -686,8 +685,6 @@ export class ExcaliburGraphicsContextWebGL implements ExcaliburGraphicsContext {
       return; // zero dimension dest exit early
     } else if (dwidth === 0 || dheight === 0) {
       return; // zero dimension dest exit early
-    } else if (this._getImageWidth(image) === 0 || this._getImageHeight(image) === 0) {
-      return; // zero dimension source exit early
     }
 
     if (!image) {
@@ -698,6 +695,11 @@ export class ExcaliburGraphicsContextWebGL implements ExcaliburGraphicsContext {
         console.trace();
       }
       return;
+    }
+
+    const size = this._getImageSize(image);
+    if (size.width === 0 || size.height === 0) {
+      return; // zero dimension source exit early
     }
 
     if (this._state.current.material) {
@@ -946,8 +948,7 @@ export class ExcaliburGraphicsContextWebGL implements ExcaliburGraphicsContext {
       // reclaim draw calls
       this._drawCallPool.done();
       this._drawCallIndex = 0;
-      this._imageToHeight.clear();
-      this._imageToWidth.clear();
+      this._imageSizeGeneration++;
     } else {
       // This is the final flush at the moment to draw any leftover pending draw
       for (const renderer of this._renderers.values()) {
