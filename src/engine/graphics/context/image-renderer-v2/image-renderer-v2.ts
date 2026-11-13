@@ -37,12 +37,13 @@ export class ImageRendererV2 implements RendererPlugin {
   private _shader!: Shader;
   private _transformData!: VertexBuffer;
 
-  // Per flush vars
+  // Per flush vars, slot i of the first _textureIndex holds an image, its texture and its size as read when it joined
   private _imageCount: number = 0;
-  private _textures: WebGLTexture[] = [];
+  private _textures: (WebGLTexture | undefined)[] = [];
   private _textureIndex = 0;
-  private _textureToIndex = new Map<WebGLTexture, number>();
-  private _images = new Set<HTMLImageSource>();
+  private _slotImages: (HTMLImageSource | undefined)[] = [];
+  private _slotWidths: number[] = [];
+  private _slotHeights: number[] = [];
   private _vertexIndex: number = 0;
   private _quadMesh!: Float32Array;
   private _meshBuffer!: WebGLBuffer;
@@ -214,31 +215,46 @@ export class ImageRendererV2 implements RendererPlugin {
     return newSource;
   }
 
-  private _addImageAsTexture(image: HTMLImageSource) {
-    if (this._images.has(image)) {
-      return;
+  /**
+   * Returns the batch slot of the image, adding it (and uploading its texture if not already done) when it is not in the
+   * batch yet. Each image has a texture of its own, so the slot is also its texture index
+   */
+  private _addImageAsTexture(image: HTMLImageSource): number {
+    for (let i = 0; i < this._textureIndex; i++) {
+      if (this._slotImages[i] === image) {
+        return i;
+      }
     }
-    const maybeFiltering = image.getAttribute(ImageSourceAttributeConstants.Filtering);
-    const filtering = maybeFiltering ? parseImageFiltering(maybeFiltering) : null;
-    const wrapX = parseImageWrapping(image.getAttribute(ImageSourceAttributeConstants.WrappingX) as any);
-    const wrapY = parseImageWrapping(image.getAttribute(ImageSourceAttributeConstants.WrappingY) as any);
 
-    const force = image.getAttribute('forceUpload') === 'true' ? true : false;
-    const texture = this._context.textureLoader.load(
-      image,
-      {
-        filtering,
-        wrapping: { x: wrapX, y: wrapY }
-      },
-      force
-    )!;
-    // remove force attribute after upload
-    image.removeAttribute('forceUpload');
-    if (this._textures.indexOf(texture) === -1) {
-      this._textures.push(texture);
-      this._textureToIndex.set(texture, this._textureIndex++);
-      this._images.add(image);
+    const textureLoader = this._context.textureLoader;
+    const forceUpload = image.getAttribute('forceUpload');
+    let texture: WebGLTexture;
+    if (forceUpload === null && textureLoader.has(image)) {
+      // the options only apply to a new upload
+      texture = textureLoader.load(image)!;
+    } else {
+      const maybeFiltering = image.getAttribute(ImageSourceAttributeConstants.Filtering);
+      const filtering = maybeFiltering ? parseImageFiltering(maybeFiltering) : null;
+      const wrapX = parseImageWrapping(image.getAttribute(ImageSourceAttributeConstants.WrappingX) as any);
+      const wrapY = parseImageWrapping(image.getAttribute(ImageSourceAttributeConstants.WrappingY) as any);
+      texture = textureLoader.load(
+        image,
+        {
+          filtering,
+          wrapping: { x: wrapX, y: wrapY }
+        },
+        forceUpload === 'true'
+      )!;
+      // remove force attribute after upload
+      image.removeAttribute('forceUpload');
     }
+
+    const slot = this._textureIndex++;
+    this._textures[slot] = texture;
+    this._slotImages[slot] = image;
+    this._slotWidths[slot] = image.width;
+    this._slotHeights[slot] = image.height;
+    return slot;
   }
 
   private _bindTextures(gl: WebGLRenderingContext) {
@@ -246,46 +262,18 @@ export class ImageRendererV2 implements RendererPlugin {
     const max = Math.min(this._textureIndex, this._maxTextures);
     for (let i = 0; i < max; i++) {
       gl.activeTexture(gl.TEXTURE0 + i);
-      gl.bindTexture(gl.TEXTURE_2D, this._textures[i] || this._textures[0]);
+      gl.bindTexture(gl.TEXTURE_2D, this._textures[i]!);
     }
-  }
-
-  private _getTextureIdForImage(image: HTMLImageSource) {
-    if (image) {
-      const maybeTexture = this._context.textureLoader.get(image);
-      return this._textureToIndex.get(maybeTexture) ?? -1; //this._textures.indexOf(maybeTexture);
-    }
-    return -1;
   }
 
   private _isFull() {
     if (this._imageCount >= this._maxImages) {
       return true;
     }
-    if (this._textures.length >= this._maxTextures) {
+    if (this._textureIndex >= this._maxTextures) {
       return true;
     }
     return false;
-  }
-
-  private _imageToWidth = new Map<HTMLImageSource, number>();
-  private _getImageWidth(image: HTMLImageSource) {
-    let maybeWidth = this._imageToWidth.get(image);
-    if (maybeWidth === undefined) {
-      maybeWidth = image.width;
-      this._imageToWidth.set(image, maybeWidth);
-    }
-    return maybeWidth;
-  }
-
-  private _imageToHeight = new Map<HTMLImageSource, number>();
-  private _getImageHeight(image: HTMLImageSource) {
-    let maybeHeight = this._imageToHeight.get(image);
-    if (maybeHeight === undefined) {
-      maybeHeight = image.height;
-      this._imageToHeight.set(image, maybeHeight);
-    }
-    return maybeHeight;
   }
 
   private _view = [0, 0, 0, 0];
@@ -309,9 +297,9 @@ export class ImageRendererV2 implements RendererPlugin {
 
     this._imageCount++;
     // This creates and uploads the texture if not already done
-    this._addImageAsTexture(image);
-    const maybeImageWidth = this._getImageWidth(image);
-    const maybeImageHeight = this._getImageHeight(image);
+    const textureId = this._addImageAsTexture(image);
+    const maybeImageWidth = this._slotWidths[textureId];
+    const maybeImageHeight = this._slotHeights[textureId];
 
     let width = maybeImageWidth || swidth || 0;
     let height = maybeImageHeight || sheight || 0;
@@ -349,7 +337,6 @@ export class ImageRendererV2 implements RendererPlugin {
 
     const tint = this._context.tint || this._defaultTint;
 
-    const textureId = this._getTextureIdForImage(image);
     const imageWidth = maybeImageWidth || width;
     const imageHeight = maybeImageHeight || height;
 
@@ -424,11 +411,11 @@ export class ImageRendererV2 implements RendererPlugin {
     // Reset
     this._imageCount = 0;
     this._vertexIndex = 0;
-    this._textures.length = 0;
+    // let go of the images and textures without shrinking the arrays, which would reallocate them on the next batch
+    for (let i = 0; i < this._textureIndex; i++) {
+      this._textures[i] = undefined;
+      this._slotImages[i] = undefined;
+    }
     this._textureIndex = 0;
-    this._textureToIndex.clear();
-    this._images.clear();
-    this._imageToWidth.clear();
-    this._imageToHeight.clear();
   }
 }

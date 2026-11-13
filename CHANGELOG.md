@@ -47,6 +47,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: `RealisticSolver` warm starts and solves velocities on each contact's two bodies as numbers, read once per contact and written back after it, instead of calling `BodyComponent.applyImpulseAtOffset` for every point. That function is too big for V8 to inline at all four call sites, and every call it did not inline boxed its four number arguments
 - Perf: `Transform` reads its position and scale straight off the vectors behind its `pos` and `scale` when it builds its matrix or is cloned, instead of through two getters each, which boxed every component they returned wherever they were not inlined
 - Perf: `Actor` hands its graphics the plain anchor and offset vectors instead of the proxies that watch them. A proxy behind any `GraphicsComponent.anchor` kept V8 from inlining the reads of every watched vector in the engine, `Transform.pos` and `scale` included, so each read boxed the number it returned
+- Perf: the WebGL graphics context reads each image's size once per frame into a record it keeps for that image, instead of clearing and refilling two maps every frame. `ImageRendererV2` keeps the images of a batch, their textures and sizes in slots it reuses instead of clearing four maps and sets after every batch, and skips building texture options for images already uploaded. `TextureLoader.load` reads its options only to upload a new texture, and `GarbageCollector.touch` updates the timestamp it keeps instead of replacing it
 
 ### Changed
 

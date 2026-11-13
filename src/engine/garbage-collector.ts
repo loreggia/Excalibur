@@ -65,7 +65,7 @@ export class GarbageCollector {
   touch(resource: any) {
     const collectionData = this._collectionMap.get(resource);
     if (collectionData) {
-      this._collectionMap.set(resource, [collectionData[0], this.options.getTimestamp()]);
+      collectionData[1] = this.options.getTimestamp();
     }
   }
 
