@@ -9,10 +9,13 @@ on:
 
 jobs:
   build:
+    # forks release through release-luhelan.yml
+    if: github.repository == 'excaliburjs/Excalibur'
     uses: ./.github/workflows/build.yml
   deploy_release:
     name: Publish npm package
     needs: [build]
+    if: github.repository == 'excaliburjs/Excalibur'
     runs-on: [ubuntu-24.04]
     permissions:
       contents: write

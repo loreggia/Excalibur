@@ -1,0 +1,64 @@
+# Builds the luhelan branch into a tarball on a GitHub Release, for Luhelan to install by URL.
+# A tag luhelan-v1.0.1.1 releases version 1.0.1+luhelan.1.
+name: Release for Luhelan
+on:
+  push:
+    tags: ['luhelan-v*']
+
+jobs:
+  release:
+    name: Pack and release
+    if: github.repository == 'loreggia/Excalibur'
+    runs-on: [ubuntu-24.04]
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v6.5.0
+        with:
+          node-version-file: 'package.json'
+          package-manager-cache: false
+
+      - name: Check the tag against the version
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          EXPECTED="luhelan-v$(printf '%s' "$VERSION" | sed 's/+luhelan\./\./')"
+          if [[ "$GITHUB_REF_NAME" != "$EXPECTED" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $VERSION (expected $EXPECTED)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - run: npm install -g npm@11.16.0
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          release: true
+
+      # a + in an asset name is not kept by GitHub
+      - name: Pack
+        id: pack
+        run: |
+          set -euo pipefail
+          FILE=$(npm pack --ignore-scripts --silent)
+          ASSET="excalibur-${GITHUB_REF_NAME}.tgz"
+          mv "$FILE" "$ASSET"
+          echo "asset=$ASSET" >> $GITHUB_OUTPUT
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET: ${{ steps.pack.outputs.asset }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$ASSET" \
+            --target "$GITHUB_SHA" \
+            --title "excalibur $VERSION" \
+            --notes "Build of the luhelan branch: upstream $(printf '%s' "$VERSION" | sed 's/+.*//') with perf/fewer-allocations and feat/material-uv-rect."

@@ -7,10 +7,13 @@ on:
 
 jobs:
   build:
+    # forks release through release-luhelan.yml
+    if: github.repository == 'excaliburjs/Excalibur'
     uses: ./.github/workflows/build.yml
   deploy_release:
     name: Publish nuget package
     needs: [build]
+    if: github.repository == 'excaliburjs/Excalibur'
     runs-on: [windows-2025]
     permissions:
       contents: read
