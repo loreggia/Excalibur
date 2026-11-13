@@ -7,7 +7,7 @@ import type { Vector } from '../../math/vector';
 import { vec } from '../../math/vector';
 import { ArenaPool } from '../../util/arena-pool';
 import { BodyComponent } from '../body-component';
-import type { BoundingBox } from '../bounding-box';
+import { BoundingBox } from '../bounding-box';
 import type { Collider } from '../colliders/collider';
 import { CompositeCollider } from '../colliders/composite-collider';
 import { CollisionType } from '../collision-type';
@@ -20,14 +20,6 @@ import type { RayCastOptions } from './ray-cast-options';
 import { HashGridCell, HashGridProxy, SparseHashGrid } from './sparse-hash-grid';
 
 /**
- * Packs two collider ids into one number for pair de-duplication, supports ids up to 2^26
- */
-function calculateHash(idA: number, idB: number): number {
-  const PAIR_KEY_RANGE = 1 << 26;
-  return idA < idB ? idA * PAIR_KEY_RANGE + idB : idB * PAIR_KEY_RANGE + idA;
-}
-
-/**
  * Proxy type to stash collision info
  */
 export class HashColliderProxy extends HashGridProxy<Collider> {
@@ -36,6 +28,7 @@ export class HashColliderProxy extends HashGridProxy<Collider> {
   body?: BodyComponent;
   collisionType: CollisionType;
   override hasZeroBounds = false;
+  private _ownBounds = new BoundingBox();
   /**
    * left bounds x hash coordinate
    */
@@ -60,6 +53,16 @@ export class HashColliderProxy extends HashGridProxy<Collider> {
    * Grid size in pixels
    */
   override readonly gridSize: number;
+  /**
+   * The broadphase sweep that last went through this proxy's own cells
+   * @internal
+   */
+  _sweep = -1;
+  /**
+   * The proxy's turn, numbered across sweeps, that last tested this proxy as the other half of a pair
+   * @internal
+   */
+  _turn = -1;
   constructor(
     public collider: Collider,
     gridSize: number
@@ -92,6 +95,13 @@ export class HashColliderProxy extends HashGridProxy<Collider> {
   }
 
   /**
+   * Update bounds of the proxy, written into a box the proxy keeps rather than a new one from the collider
+   */
+  override updateBounds(): void {
+    this.bounds = this.collider.getBounds(this._ownBounds);
+  }
+
+  /**
    * Updates the hashed bounds coordinates
    */
   override update(): void {
@@ -110,8 +120,8 @@ export class SparseHashGridCollisionProcessor implements CollisionProcessor {
   readonly gridSize: number;
   readonly hashGrid: SparseHashGrid<Collider, HashColliderProxy>;
 
-  private _pairs = new Set<number>();
-  private _nonPairs = new Set<number>();
+  private _sweep = 0;
+  private _turn = 0;
 
   public _pairPool = new ArenaPool<Pair>(
     () => new Pair({ id: createId('collider', 0) } as Collider, { id: createId('collider', 0) } as Collider),
@@ -352,8 +362,7 @@ export class SparseHashGridCollisionProcessor implements CollisionProcessor {
    */
   broadphase(targets: Collider[], elapsed: number): Pair[] {
     const pairs: Pair[] = [];
-    this._pairs.clear();
-    this._nonPairs.clear();
+    const sweep = ++this._sweep;
 
     let proxyId = 0;
     for (const proxy of this.hashGrid.objectToProxy.values()) {
@@ -365,6 +374,8 @@ export class SparseHashGridCollisionProcessor implements CollisionProcessor {
       if (proxy.body?.isSleeping) {
         continue;
       }
+      proxy._sweep = sweep;
+      const turn = ++this._turn;
       // for every cell proxy collider is member of
       for (let cellIndex = 0; cellIndex < proxy.cells.length; cellIndex++) {
         const cell = proxy.cells[cellIndex];
@@ -372,26 +383,18 @@ export class SparseHashGridCollisionProcessor implements CollisionProcessor {
         // maybe a linked list here
         for (let otherIndex = 0; otherIndex < cell.proxies.length; otherIndex++) {
           const other = cell.proxies[otherIndex];
-          if (other.id === proxy.id) {
-            // skip duplicates
+          // A pair is tested once a sweep. Proxies that share a cell are in each other's cells, so a proxy whose own
+          // cells were swept already has tested its pair with this one, and this one has tested the pair itself if
+          // an earlier cell of this turn held the other proxy too. That also skips the proxy itself.
+          if (other._sweep === sweep || other._turn === turn) {
             continue;
           }
-          const idA = proxy.collider.id.value;
-          const idB = other.collider.id.value;
-          const key = calculateHash(idA, idB);
-          if (this._nonPairs.has(key)) {
-            continue; // Is there a way we can re-use the non-pair cache
-          }
+          other._turn = turn;
           // proxy bounds were refreshed by update() this frame, no need to recompute collider bounds
-          if (!this._pairs.has(key) && this._canCollide(proxy, other) && proxy.bounds.overlaps(other.bounds)) {
+          if (this._canCollide(proxy, other) && proxy.bounds.overlaps(other.bounds)) {
             const pair = this._pairPool.get();
-            pair.colliderA = proxy.collider;
-            pair.colliderB = other.collider;
-            pair.id = Pair.calculatePairHash(proxy.collider.id, other.collider.id);
-            this._pairs.add(key);
+            pair.reset(proxy.collider, other.collider);
             pairs.push(pair);
-          } else {
-            this._nonPairs.add(key);
           }
         }
       }

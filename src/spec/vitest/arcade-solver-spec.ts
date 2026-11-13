@@ -365,4 +365,68 @@ describe('An ArcadeSolver', () => {
 
     game.dispose();
   });
+  it('removes only the velocity going into the contact from both active bodies', () => {
+    const arcadeSolver = new ex.ArcadeSolver(getDefaultPhysicsConfig().arcade);
+    const normal = ex.vec(0.6, 0.8);
+    const bodyA = new ex.Actor({ x: 0, y: 0, width: 40, height: 40, collisionType: ex.CollisionType.Active });
+    const bodyB = new ex.Actor({ x: 30, y: 30, width: 40, height: 40, collisionType: ex.CollisionType.Active });
+    const contactFor = () =>
+      new ex.CollisionContact(
+        bodyA.collider.get()!,
+        bodyB.collider.get()!,
+        normal.scale(5),
+        normal,
+        normal.perpendicular(),
+        [],
+        [],
+        null as any
+      );
+
+    // A moves into B (along the normal) and B moves into A (against it): the parts along the normal go
+    bodyA.vel = ex.vec(10, 5);
+    bodyB.vel = ex.vec(-4, -7);
+    const velA = bodyA.vel;
+    arcadeSolver.solveVelocity(contactFor());
+    expect(bodyA.vel.dot(normal)).toBeCloseTo(0, 10);
+    expect(bodyA.vel.dot(normal.perpendicular())).toBeCloseTo(ex.vec(10, 5).dot(normal.perpendicular()), 10);
+    expect(bodyB.vel.dot(normal)).toBeCloseTo(0, 10);
+    expect(bodyB.vel.dot(normal.perpendicular())).toBeCloseTo(ex.vec(-4, -7).dot(normal.perpendicular()), 10);
+    // the adjusted velocity is a new vector, the one read before is left alone
+    expect(velA).toBeVector(ex.vec(10, 5));
+
+    // both moving apart: nothing changes
+    bodyA.vel = ex.vec(-10, -5);
+    bodyB.vel = ex.vec(4, 7);
+    arcadeSolver.solveVelocity(contactFor());
+    expect(bodyA.vel).toBeVector(ex.vec(-10, -5));
+    expect(bodyB.vel).toBeVector(ex.vec(4, 7));
+  });
+
+  it('splits the overlap between two active bodies and gives a fixed body none', () => {
+    const arcadeSolver = new ex.ArcadeSolver(getDefaultPhysicsConfig().arcade);
+    const active = new ex.Actor({ x: 0, y: 0, width: 40, height: 40, collisionType: ex.CollisionType.Active });
+    const other = new ex.Actor({ x: 36, y: 0, width: 40, height: 40, collisionType: ex.CollisionType.Active });
+    const contactFor = () =>
+      new ex.CollisionContact(
+        active.collider.get()!,
+        other.collider.get()!,
+        ex.vec(4, 0),
+        ex.Vector.Right,
+        ex.Vector.Right.perpendicular(),
+        [],
+        [],
+        null as any
+      );
+
+    arcadeSolver.solvePosition(contactFor());
+    expect(active.pos).toBeVector(ex.vec(-2, 0));
+    expect(other.pos).toBeVector(ex.vec(38, 0));
+
+    active.pos = ex.vec(0, 0);
+    other.pos = ex.vec(36, 0);
+    other.body.collisionType = ex.CollisionType.Fixed;
+    arcadeSolver.solvePosition(contactFor());
+    expect(active.pos).toBeVector(ex.vec(-4, 0));
+    expect(other.pos).toBeVector(ex.vec(36, 0));
+  });
 });

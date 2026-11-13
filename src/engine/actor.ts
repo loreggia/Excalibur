@@ -1058,7 +1058,9 @@ export class Actor extends Entity implements Eventable, PointerEvents, CanInitia
    * @internal
    */
   public override _preupdate(engine: Engine, elapsed: number): void {
-    this.events.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('preupdate')) {
+      this.events.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    }
     this.onPreUpdate(engine, elapsed);
   }
 
@@ -1071,7 +1073,9 @@ export class Actor extends Entity implements Eventable, PointerEvents, CanInitia
    * @internal
    */
   public override _postupdate(engine: Engine, elapsed: number): void {
-    this.events.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('postupdate')) {
+      this.events.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    }
     this.onPostUpdate(engine, elapsed);
   }
 

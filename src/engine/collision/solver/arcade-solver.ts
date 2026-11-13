@@ -4,10 +4,12 @@ import { CollisionType } from '../collision-type';
 import { Side } from '../side';
 import type { CollisionSolver } from './solver';
 import { BodyComponent } from '../body-component';
+import { BoundingBox } from '../bounding-box';
 import type { ContactBias } from './contact-bias';
 import { ContactSolveBias, HorizontalFirst, None, VerticalFirst } from './contact-bias';
 import type { PhysicsConfig } from '../physics-config';
 import type { DeepRequired } from '../../util/required';
+import { Vector } from '../../math/vector';
 
 /**
  * ArcadeSolver is the default in Excalibur. It solves collisions so that there is no overlap between contacts,
@@ -19,6 +21,8 @@ import type { DeepRequired } from '../../util/required';
 export class ArcadeSolver implements CollisionSolver {
   directionMap = new Map<string, 'horizontal' | 'vertical'>();
   distanceMap = new Map<string, number>();
+  private _boundsA = new BoundingBox();
+  private _boundsB = new BoundingBox();
 
   constructor(public config: DeepRequired<Pick<PhysicsConfig, 'arcade'>['arcade']>) {}
 
@@ -143,7 +147,7 @@ export class ArcadeSolver implements CollisionSolver {
     const epsilon = 0.0001;
     // if bounds no longer intersect skip to the next
     // this removes jitter from overlapping/stacked solid tiles or a wall of solid tiles
-    if (!contact.colliderA.bounds.overlaps(contact.colliderB.bounds, epsilon)) {
+    if (!contact.colliderA.getBounds(this._boundsA).overlaps(contact.colliderB.getBounds(this._boundsB), epsilon)) {
       // Cancel the contact to prevent and solving
       contact.cancel();
       return;
@@ -155,7 +159,7 @@ export class ArcadeSolver implements CollisionSolver {
       return;
     }
 
-    let mtv = contact.mtv;
+    const mtv = contact.mtv;
     const colliderA = contact.colliderA;
     const colliderB = contact.colliderB;
     const bodyA = colliderA.owner?.get(BodyComponent);
@@ -165,21 +169,21 @@ export class ArcadeSolver implements CollisionSolver {
         return;
       }
 
-      if (bodyA.collisionType === CollisionType.Active && bodyB.collisionType === CollisionType.Active) {
-        // split overlaps if both are Active
-        mtv = mtv.scale(0.5);
-      }
+      // split overlaps if both are Active
+      const split = bodyA.collisionType === CollisionType.Active && bodyB.collisionType === CollisionType.Active ? 0.5 : 1;
+      const mtvX = mtv.x * split;
+      const mtvY = mtv.y * split;
 
       // Resolve overlaps
       if (bodyA.collisionType === CollisionType.Active) {
-        bodyA.globalPos.x -= mtv.x;
-        bodyA.globalPos.y -= mtv.y;
+        bodyA.globalPos.x -= mtvX;
+        bodyA.globalPos.y -= mtvY;
         colliderA.update(bodyA.transform.get());
       }
 
       if (bodyB.collisionType === CollisionType.Active) {
-        bodyB.globalPos.x += mtv.x;
-        bodyB.globalPos.y += mtv.y;
+        bodyB.globalPos.x += mtvX;
+        bodyB.globalPos.y += mtvY;
         colliderB.update(bodyB.transform.get());
       }
     }
@@ -200,25 +204,28 @@ export class ArcadeSolver implements CollisionSolver {
         return;
       }
 
-      const normal = contact.normal;
-      const opposite = normal.negate();
+      // a body moving into the contact loses the part of its velocity along the normal: v - n * (n . v)
+      const nX = contact.normal.x;
+      const nY = contact.normal.y;
 
       if (bodyA.collisionType === CollisionType.Active) {
         // only adjust velocity if the contact normal is opposite to the current velocity
         // this avoids catching edges on a platform when sliding off
-        if (bodyA.vel.normalize().dot(opposite) < 0) {
+        const vel = bodyA.vel;
+        const velDotNormal = vel.x * nX + vel.y * nY;
+        if (velDotNormal > 0) {
           // Cancel out velocity opposite direction of collision normal
-          const velAdj = normal.scale(normal.dot(bodyA.vel.negate()));
-          bodyA.vel = bodyA.vel.add(velAdj);
+          bodyA.vel = new Vector(vel.x - nX * velDotNormal, vel.y - nY * velDotNormal);
         }
       }
 
       if (bodyB.collisionType === CollisionType.Active) {
         // only adjust velocity if the contact normal is opposite to the current velocity
         // this avoids catching edges on a platform
-        if (bodyB.vel.normalize().dot(normal) < 0) {
-          const velAdj = opposite.scale(opposite.dot(bodyB.vel.negate()));
-          bodyB.vel = bodyB.vel.add(velAdj);
+        const vel = bodyB.vel;
+        const velDotNormal = vel.x * nX + vel.y * nY;
+        if (velDotNormal < 0) {
+          bodyB.vel = new Vector(vel.x - nX * velDotNormal, vel.y - nY * velDotNormal);
         }
       }
     }

@@ -54,6 +54,32 @@ describe('A Collision', () => {
     expect(actor2Collision).toBe(1);
   });
 
+  it('hands the processor every collider, composite members flattened, and drops removed ones', () => {
+    const compositeA = new ex.CompositeCollider([ex.Colliders.Box(10, 10), ex.Colliders.Circle(5)]);
+    const compositeB = new ex.CompositeCollider([ex.Colliders.Box(10, 10, ex.Vector.Half, ex.vec(20, 0)), ex.Colliders.Circle(5)]);
+    const actorA = new ex.Actor({ x: 100, y: 100, collider: compositeA });
+    const actorB = new ex.Actor({ x: 200, y: 100, collider: compositeB });
+    engine.add(actorA);
+    engine.add(actorB);
+
+    const processor = engine.currentScene.physics.collisionProcessor;
+    const update = processor.update.bind(processor);
+    let seen: ex.Collider[] = [];
+    vi.spyOn(processor, 'update').mockImplementation((targets, elapsed) => {
+      // the list is reused between frames, so keep a copy of what this frame was handed
+      seen = [...targets];
+      return update(targets, elapsed);
+    });
+
+    clock.step(16);
+    expect(seen).toEqual([actor1.collider.get(), actor2.collider.get(), ...compositeA.getColliders(), ...compositeB.getColliders()]);
+
+    engine.remove(actorA);
+    clock.step(16);
+    clock.step(16);
+    expect(seen).toEqual([actor1.collider.get(), actor2.collider.get(), ...compositeB.getColliders()]);
+  });
+
   it('order of actors collision should not matter when an Active and Active Collision', () => {
     const collisionTree = new ex.DynamicTreeCollisionProcessor({
       ...getDefaultPhysicsConfig()
@@ -246,6 +272,30 @@ describe('A Collision', () => {
         clock.run(5, 1000);
       });
     }));
+
+  it('emits collisionstart and collisionend once each time objects start and stop touching, frame after frame', () => {
+    const mover = new ex.Actor({ x: 300, y: 300, width: 20, height: 20, collisionType: ex.CollisionType.Active });
+    const wall = new ex.Actor({ x: 330, y: 300, width: 20, height: 20, collisionType: ex.CollisionType.Passive });
+    engine.add(mover);
+    engine.add(wall);
+    const events: string[] = [];
+    mover.on('collisionstart', () => events.push('start'));
+    mover.on('collisionend', () => events.push('end'));
+    const frames = (x: number, count: number) => {
+      for (let i = 0; i < count; i++) {
+        mover.pos = ex.vec(x, 300);
+        clock.step(16);
+      }
+    };
+
+    frames(300, 2);
+    frames(320, 3);
+    frames(300, 2);
+    frames(320, 2);
+    frames(300, 1);
+
+    expect(events).toEqual(['start', 'end', 'start', 'end']);
+  });
 
   it('should emit a start collision once when objects start colliding', () =>
     new Promise<void>((done) => {

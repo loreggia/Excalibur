@@ -1074,6 +1074,34 @@ describe('A Screen', () => {
     expect(bounds.top).toBe(150);
   });
 
+  it('returns the same world bounds for an unrotated camera as scaling and translating the screen box', () => {
+    const sut = new ex.Screen({
+      canvas,
+      context,
+      browser,
+      viewport: { width: 801, height: 599 },
+      pixelRatio: 2
+    });
+    const camera = new Camera();
+    camera.x = 123.4;
+    camera.y = -56.7;
+    camera.zoom = 1.7;
+
+    sut.setCurrentCamera(camera);
+    sut.applyResolutionAndViewport();
+    camera._initialize({ screen: sut, clock: { elapsed: () => 16 } } as ex.Engine);
+
+    const bounds = sut.getWorldBounds();
+    const expected = ex.BoundingBox.fromDimension(801, 599, ex.Vector.Half)
+      .scale(ex.vec(1 / 1.7, 1 / 1.7))
+      .translate(camera.drawPos);
+
+    expect(bounds.left).toBeCloseTo(expected.left, 10);
+    expect(bounds.right).toBeCloseTo(expected.right, 10);
+    expect(bounds.top).toBeCloseTo(expected.top, 10);
+    expect(bounds.bottom).toBeCloseTo(expected.bottom, 10);
+  });
+
   it('can return world bounds with camera rotation', () => {
     const sut = new ex.Screen({
       canvas,

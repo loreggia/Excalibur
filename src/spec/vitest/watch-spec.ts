@@ -105,6 +105,28 @@ describe('watch', () => {
       expect(proxy.nested.y).toBe(3);
     });
 
+    it('hands out the same proxy for a nested object on every read', () => {
+      const change = vi.fn();
+      const proxy = watchDeep({ nested: { deeper: { y: 2 } } }, change);
+
+      expect(proxy.nested).toBe(proxy.nested);
+      expect(proxy.nested.deeper).toBe(proxy.nested.deeper);
+    });
+
+    it('gives a replaced nested object a proxy of its own, which still fires the change callback', () => {
+      const change = vi.fn();
+      const proxy = watchDeep({ nested: { y: 2 } }, change);
+      const before = proxy.nested;
+
+      proxy.nested = { y: 5 };
+      const after = proxy.nested;
+      after.y = 6;
+
+      expect(after).not.toBe(before);
+      expect(after.y).toBe(6);
+      expect(change).toHaveBeenCalledTimes(2);
+    });
+
     it('does not fire the change callback for underscore-prefixed (private) properties', () => {
       const change = vi.fn();
       const proxy = watchDeep({ _x: 1 } as any, change);

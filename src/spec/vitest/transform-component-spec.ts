@@ -122,6 +122,35 @@ describe('A TransformComponent', () => {
     expect(childTx.scale).toBeVector(ex.vec(3 / 2, 4 / 3));
   });
 
+  it('builds a child matrix as the parent matrix times the local one, frame after frame, with mirrored scales', () => {
+    const parent = new ex.Transform();
+    parent.pos = ex.vec(10, 20);
+    parent.rotation = 0.5;
+    parent.scale = ex.vec(-2, 1);
+    const child = new ex.Transform();
+    child.parent = parent;
+    const local = new ex.Transform();
+
+    const frames = [
+      { pos: ex.vec(5, 0), rotation: 0.25, scale: ex.vec(1, -1) },
+      { pos: ex.vec(-3, 7), rotation: 1, scale: ex.vec(-3, 2) },
+      { pos: ex.vec(0, 0), rotation: 0, scale: ex.vec(2, 2) },
+      { pos: ex.vec(1, 1), rotation: 2, scale: ex.vec(-1, -1) }
+    ];
+    for (const { pos, rotation, scale } of frames) {
+      for (const tx of [child, local]) {
+        tx.pos = pos;
+        tx.rotation = rotation;
+        tx.scale = scale;
+      }
+      const expected = parent.matrix.multiply(local.matrix);
+
+      expect(Array.from(child.matrix.data)).toEqual(Array.from(expected.data));
+      expect(child.matrix.getScaleX()).toBe(expected.getScaleX());
+      expect(child.matrix.getScaleY()).toBe(expected.getScaleY());
+    }
+  });
+
   it('can have parent/child relationships with rotation', () => {
     const parent = new ex.Entity([new ex.TransformComponent()]);
     const child = new ex.Entity([new ex.TransformComponent()]);
@@ -364,4 +393,27 @@ describe('A TransformComponent', () => {
     // Should have a new owner
     expect(sut.owner).toBe(clone);
   });
+
+  for (const withParent of [false, true]) {
+    it(`still sees changes to pos after globalPos is assigned${withParent ? ', with a parent' : ''}`, () => {
+      const parent = new ex.Entity([new TransformComponent()]);
+      const child = new ex.Entity([new TransformComponent()]);
+      const parentTx = parent.get(TransformComponent);
+      const childTx = child.get(TransformComponent);
+      if (withParent) {
+        parent.addChild(child);
+        parentTx.pos = ex.vec(100, 0);
+      }
+      const pos = childTx.pos;
+
+      childTx.globalPos = ex.vec(150, 20);
+      expect(childTx.get().matrix.data[4]).toBeCloseTo(150, 10);
+
+      // pos is still the vector handed out before, and changing it still moves the transform
+      expect(childTx.pos).toBe(pos);
+      childTx.pos.x = withParent ? 70 : 170;
+      expect(childTx.get().matrix.data[4]).toBeCloseTo(170, 10);
+      expect(childTx.globalPos.x).toBeCloseTo(170, 10);
+    });
+  }
 });

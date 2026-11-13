@@ -380,8 +380,13 @@ export class PolygonCollider extends Collider {
    * Get the center of the collider in world coordinates
    */
   public get center(): Vector {
+    return this.getCenter(new Vector(0, 0));
+  }
+
+  public override getCenter(dest: Vector): Vector {
     const bounds = this._getWorldBounds();
-    return new Vector((bounds.left + bounds.right) / 2, (bounds.top + bounds.bottom) / 2);
+    dest.setTo((bounds.left + bounds.right) / 2, (bounds.top + bounds.bottom) / 2);
+    return dest;
   }
 
   private _transformedPointsDirty = true;
@@ -716,6 +721,14 @@ export class PolygonCollider extends Collider {
     const bounds = this._getWorldBounds();
     // object form like every other construction site, keeps the BoundingBox constructor monomorphic
     return new BoundingBox({ left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom });
+  }
+
+  /**
+   * Writes the axis aligned bounding box for the polygon collider in world coordinates into `dest`
+   * @param dest
+   */
+  public override getBounds(dest: BoundingBox): BoundingBox {
+    return this._getWorldBounds().clone(dest);
   }
 
   private _localBoundsDirty = true;

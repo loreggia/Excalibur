@@ -70,6 +70,21 @@ export class EventEmitter<TEventMap extends EventMap = any> {
     }
   }
 
+  /**
+   * Whether emitting `eventName` would reach anything: a listener, a once listener or a piped emitter.
+   *
+   * Lets hot paths skip building an event object that nobody would receive.
+   * @param eventName
+   */
+  hasListeners(eventName: string): boolean {
+    if (this._empty || this._paused) {
+      return false;
+    }
+    const listeners = this._listeners[eventName];
+    const onces = this._listenersOnce[eventName];
+    return !!((listeners && listeners.length) || (onces && onces.length) || this._pipes.length);
+  }
+
   emit<TEventName extends EventKey<TEventMap>>(eventName: TEventName, event: TEventMap[TEventName]): void;
   emit(eventName: string, event?: any): void;
   emit<TEventName extends EventKey<TEventMap> | string>(eventName: TEventName, event?: TEventMap[TEventName]): void {
@@ -86,8 +101,8 @@ export class EventEmitter<TEventMap extends EventMap = any> {
       }
     }
     const onces = this._listenersOnce[eventName];
-    this._listenersOnce[eventName] = [];
-    if (onces) {
+    if (onces && onces.length) {
+      this._listenersOnce[eventName] = [];
       for (let i = 0; i < onces.length; i++) {
         onces[i](event);
       }

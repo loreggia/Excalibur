@@ -8,12 +8,15 @@ import { BodyComponent } from './body-component';
 import { CollisionType } from './collision-type';
 import { EulerIntegrator } from './integrator';
 import type { PhysicsWorld } from './physics-world';
+import { Vector } from '../math/vector';
 
 export class MotionSystem extends System {
   static override priority = SystemPriority.Higher;
 
   public systemType = SystemType.Update;
   private _physicsConfigDirty = false;
+  /** Scratch for an entity's total acceleration, the integrator does not keep it */
+  private _totalAcc = new Vector(0, 0);
   query: Query<typeof TransformComponent | typeof MotionComponent>;
 
   private _createPhysicsQuery(world: World, physics: PhysicsWorld) {
@@ -45,7 +48,11 @@ export class MotionSystem extends System {
     let motion: MotionComponent;
     const entities = this.query.entities;
     const config = this.physics.config;
-    const substep = config.substep;
+    const stepElapsed = elapsed / config.substep;
+    // read once: the config is a proxy, and so is its gravity
+    const gravityX = config.gravity.x;
+    const gravityY = config.gravity.y;
+    const totalAcc = this._totalAcc;
 
     for (let i = 0; i < entities.length; i++) {
       transform = entities[i].get(TransformComponent);
@@ -57,16 +64,17 @@ export class MotionSystem extends System {
 
       const optionalBody = entities[i].get(BodyComponent);
       if (this._physicsConfigDirty && optionalBody) {
-        optionalBody.updatePhysicsConfig(this.physics.config.bodies);
+        optionalBody.updatePhysicsConfig(config.bodies);
       }
 
       if (optionalBody?.isSleeping) {
         continue;
       }
 
-      const totalAcc = motion.acc.clone();
+      totalAcc.setTo(motion.acc.x, motion.acc.y);
       if (optionalBody?.collisionType === CollisionType.Active && optionalBody?.useGravity) {
-        totalAcc.addEqual(this.physics.config.gravity);
+        totalAcc.x += gravityX;
+        totalAcc.y += gravityY;
       }
 
       // capture old transform of this entity and all of its children so that
@@ -76,7 +84,7 @@ export class MotionSystem extends System {
       }
 
       // Update transform and motion based on Euler linear algebra
-      EulerIntegrator.integrate(transform, motion, totalAcc, elapsed / substep);
+      EulerIntegrator.integrate(transform, motion, totalAcc, stepElapsed);
     }
     if (this._physicsConfigDirty) {
       this._physicsConfigDirty = false;

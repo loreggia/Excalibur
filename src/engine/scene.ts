@@ -472,7 +472,9 @@ export class Scene<TActivationData = unknown> implements CanInitialize, CanActiv
    * @internal
    */
   public _preupdate(engine: Engine, elapsed: number): void {
-    this.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('preupdate')) {
+      this.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    }
     this.onPreUpdate(engine, elapsed);
   }
 
@@ -483,7 +485,9 @@ export class Scene<TActivationData = unknown> implements CanInitialize, CanActiv
    * @internal
    */
   public _postupdate(engine: Engine, elapsed: number): void {
-    this.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('postupdate')) {
+      this.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    }
     this.onPostUpdate(engine, elapsed);
   }
 
@@ -494,7 +498,9 @@ export class Scene<TActivationData = unknown> implements CanInitialize, CanActiv
    * @internal
    */
   public _predraw(ctx: ExcaliburGraphicsContext, elapsed: number): void {
-    this.emit('predraw', new PreDrawEvent(ctx, elapsed, this));
+    if (this.events.hasListeners('predraw')) {
+      this.emit('predraw', new PreDrawEvent(ctx, elapsed, this));
+    }
     this.onPreDraw(ctx, elapsed);
   }
 
@@ -505,7 +511,9 @@ export class Scene<TActivationData = unknown> implements CanInitialize, CanActiv
    * @internal
    */
   public _postdraw(ctx: ExcaliburGraphicsContext, elapsed: number): void {
-    this.emit('postdraw', new PostDrawEvent(ctx, elapsed, this));
+    if (this.events.hasListeners('postdraw')) {
+      this.emit('postdraw', new PostDrawEvent(ctx, elapsed, this));
+    }
     this.onPostDraw(ctx, elapsed);
   }
 
@@ -835,9 +843,13 @@ export class Scene<TActivationData = unknown> implements CanInitialize, CanActiv
   }
 
   private _collectActorStats(engine: Engine) {
-    const actors = this.actors;
-    for (let i = 0; i < actors.length; i++) {
-      const actor = actors[i];
+    // straight off the entities: `actors` filters them into a new array on every read
+    const entities = this.world.entityManager.entities;
+    for (let i = 0; i < entities.length; i++) {
+      const actor = entities[i];
+      if (!(actor instanceof Actor)) {
+        continue;
+      }
       if (actor instanceof ScreenElement) {
         engine.stats.currFrame.actors.ui++;
       }

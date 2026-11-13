@@ -601,7 +601,9 @@ export class Camera implements CanUpdate, CanInitialize {
    * @internal
    */
   public _preupdate(engine: Engine, elapsed: number): void {
-    this.events.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('preupdate')) {
+      this.events.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    }
     this.onPreUpdate(engine, elapsed);
   }
 
@@ -625,7 +627,9 @@ export class Camera implements CanUpdate, CanInitialize {
    * @internal
    */
   public _postupdate(engine: Engine, elapsed: number): void {
-    this.events.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('postupdate')) {
+      this.events.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    }
     this.onPostUpdate(engine, elapsed);
   }
 

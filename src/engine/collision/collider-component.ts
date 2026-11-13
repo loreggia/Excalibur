@@ -235,26 +235,30 @@ export class ColliderComponent extends Component {
     // Wire up the collider events to the owning entity
     this.events.on('precollision', (evt: any) => {
       const precollision = evt as PreCollisionEvent<Collider>;
-      entity.events.emit(
-        'precollision',
-        new PreCollisionEvent(precollision.self, precollision.other, precollision.side, precollision.intersection, precollision.contact)
-      );
+      if (entity.events.hasListeners('precollision')) {
+        entity.events.emit(
+          'precollision',
+          new PreCollisionEvent(precollision.self, precollision.other, precollision.side, precollision.intersection, precollision.contact)
+        );
+      }
       if (entity instanceof Actor) {
         entity.onPreCollisionResolve(precollision.self, precollision.other, precollision.side, precollision.contact);
       }
     });
     this.events.on('postcollision', (evt: any) => {
       const postcollision = evt as PostCollisionEvent<Collider>;
-      entity.events.emit(
-        'postcollision',
-        new PostCollisionEvent(
-          postcollision.self,
-          postcollision.other,
-          postcollision.side,
-          postcollision.intersection,
-          postcollision.contact
-        )
-      );
+      if (entity.events.hasListeners('postcollision')) {
+        entity.events.emit(
+          'postcollision',
+          new PostCollisionEvent(
+            postcollision.self,
+            postcollision.other,
+            postcollision.side,
+            postcollision.intersection,
+            postcollision.contact
+          )
+        );
+      }
       if (entity instanceof Actor) {
         entity.onPostCollisionResolve(postcollision.self, postcollision.other, postcollision.side, postcollision.contact);
       }

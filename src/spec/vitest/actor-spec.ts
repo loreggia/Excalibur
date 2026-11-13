@@ -352,6 +352,40 @@ describe('A game actor', () => {
     expect(actor.vel.y).toBe(20);
   });
 
+  it('adds gravity only to active bodies that use it, without changing their acceleration', () => {
+    motionSystem.physics.config.gravity = ex.vec(0, 100);
+    actor.acc = ex.vec(10, 0);
+    const passive = new ex.Actor({ name: 'passive', collisionType: ex.CollisionType.Passive });
+    const floating = new ex.Actor({ name: 'floating', collisionType: ex.CollisionType.Active });
+    floating.body.useGravity = false;
+    scene.add(passive);
+    scene.add(floating);
+
+    motionSystem.onUpdate(1000);
+
+    expect(actor.acc).toBeVector(ex.vec(10, 0));
+    expect(actor.vel).toBeVector(ex.vec(10, 100));
+    expect(passive.vel).toBeVector(ex.vec(0, 0));
+    expect(floating.vel).toBeVector(ex.vec(0, 0));
+  });
+
+  it('keeps its old transform attached to the parent once, and captures the old acceleration, across updates', () => {
+    const parent = new ex.Actor({ pos: ex.vec(10, 10) });
+    const child = new ex.Actor({ name: 'child', pos: ex.vec(10, 10) });
+    scene.add(parent);
+    parent.addChild(child);
+    child.acc = ex.vec(5, 5);
+    const parentTransform = parent.get(ex.TransformComponent).get();
+
+    for (let i = 0; i < 3; i++) {
+      motionSystem.onUpdate(16);
+    }
+
+    expect(child.body.oldTransform.parent).toBe(parentTransform);
+    expect(parentTransform.children.filter((tx) => tx === child.body.oldTransform).length).toBe(1);
+    expect(child.oldAcc).toBeVector(ex.vec(5, 5));
+  });
+
   it('can have its height and width scaled', () => {
     const actor = new ex.Actor({
       width: 20,
@@ -1440,6 +1474,21 @@ describe('A game actor', () => {
       actor.update(engine, 100);
       expect(actor._preupdate).toHaveBeenCalledTimes(2);
       expect(actor.onPreUpdate).toHaveBeenCalledTimes(2);
+    });
+
+    it('emits preupdate and postupdate to listeners added after it has updated without any', () => {
+      actor.update(engine, 100);
+      const preupdate = vi.fn();
+      const postupdate = vi.fn();
+      actor.on('preupdate', preupdate);
+      actor.on('postupdate', postupdate);
+
+      actor.update(engine, 100);
+
+      expect(preupdate).toHaveBeenCalledTimes(1);
+      expect(preupdate.mock.calls[0][0]).toBeInstanceOf(ex.PreUpdateEvent);
+      expect(postupdate).toHaveBeenCalledTimes(1);
+      expect(postupdate.mock.calls[0][0].elapsed).toBe(100);
     });
 
     it('can have onPreKill overridden safely', () => {

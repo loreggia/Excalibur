@@ -20,9 +20,32 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed issue with multiline text where lines were drawn too close to together if lineHeight wasn't explicitly set
 - Fixed issue with JSON parse round tripping through JSON when null/NaN/Infinite
 - Fixed issue with GraphicsComponent serialization not correctly restoring graphics
+- Fixed `Transform.globalPos = v` replacing the transform's `pos` vector with a plain one: changes made to `pos` afterwards no longer flagged the transform dirty, so its matrix and `globalPos` could stay stale
 
 ### Updates
 
+- Perf: `CollisionSystem` no longer copies its list of colliders once per composite collider every frame, which made collider bookkeeping quadratic in the number of composite colliders (a tile map with solid tiles is one). The list is also reused between frames
+- Perf: `SparseHashGridCollisionProcessor.broadphase` no longer hashes every candidate pair into two `Set`s each frame to tell which it has already tested, it marks the proxies instead. `Pair.id` is now built on first read, and `Pair.reset(colliderA, colliderB)` re-points a pair
+- Perf: `PhysicsWorld.config` no longer builds a new proxy, and one more for every nested object read through it, on every read. It hands out the same proxy until the config is replaced, and the same proxy for a nested object until that object is replaced
+- Added `Collider.getBounds(dest)`, which writes the world space bounds into a box it is given where `Collider.bounds` makes a new one. The sparse hash grid and the arcade solver use it, so they no longer allocate a box per collider for every read of its bounds
+- Perf: `Transform.matrix` multiplies a child transform's matrix straight into its own, instead of into a new matrix it then copies
+- Added `EventEmitter.hasListeners(eventName)`, which is true when emitting that event would reach a listener, a once listener or a piped emitter. The engine, scenes, cameras, entities, tile maps and the graphics system use it to skip building their per-frame lifecycle events (`preupdate`, `postupdate`, `predraw`, `postdraw`, `pretransformdraw`, `posttransformdraw`) when nothing would receive them, and colliders to skip forwarding `precollision` and `postcollision` to an entity nothing listens on
+- Perf: `EventEmitter.emit` no longer replaces the list of once listeners with a new empty array on every emit, only when there were once listeners to fire
+- Perf: `GraphicsSystem` walks up an entity's parents to apply their transforms and opacity, instead of building an array of its ancestors twice per entity every frame
+- Perf: `OffscreenSystem` transforms each entity's bounds into a box it keeps; `BoundingBox.transform` reads the translation straight off the matrix instead of through a new vector; a `BoundingBox` creates the array for `getPoints()` on first use
+- Perf: the graphics context's `save()` shares the current tint with the saved state instead of cloning it. Assigning `ctx.tint = color` after a `save()` works as before; changing the components of `ctx.tint` in place (`ctx.tint.a = 0.5`) now also changes the saved state's tint, so assign a new color instead
+- Perf: `MotionSystem` and `EulerIntegrator` add up acceleration, velocity and position as numbers instead of through cloned and scratch vectors, and `BodyComponent.captureOldTransform()` copies the old values directly and only re-parents the old transform when its parent changed
+- Perf: pointer event dispatch to entities reuses its list of targets, reads the frame's pointer maps instead of copying their keys into new sets, and swaps the last and current frame maps instead of copying one into a new map every frame
+- Perf: `CollisionSystem` swaps its last and current frame contact maps instead of copying the current one into a new map every frame
+- Perf: the per-frame actor stats walk the scene's entities instead of reading `Scene.actors`, which filters them into a new array on every read
+- Perf: `TileMap` draws from a list of on screen tiles it keeps, and finds the corners of the screen in tile coordinates without temporary vectors. `getOnScreenTiles()` still returns a new array
+- Perf: `Screen.getWorldBounds()` works the box out directly while the camera is not rotated, rather than through a box per step
+- Perf: `GraphicsComponent` without a graphic keeps one empty box for its `localBounds`, which it recalculated into a new box on every read
+- Added `Collider.getCenter(dest)`, which writes the world space center into a vector it is given where `Collider.center` makes a new one. Circle, polygon and edge colliders do it without allocating (an edge no longer transforms both ends into new vectors to average them), and the realistic solver uses it for the lever arms of every contact
+- Perf: polygon contacts read both collider centers into scratch vectors and build their normal, pointing from A to B, as one new vector instead of cloning the separation axis and negating the clone
+- Perf: `ArcadeSolver.solvePosition` and `solveVelocity` work as numbers. `solveVelocity` no longer normalizes, negates and scales the velocities and normal into new vectors per contact, the adjusted velocity is still assigned as a new vector
+- Perf: `RealisticSolver` warm starts and solves velocities on each contact's two bodies as numbers, read once per contact and written back after it, instead of calling `BodyComponent.applyImpulseAtOffset` for every point. That function is too big for V8 to inline at all four call sites, and every call it did not inline boxed its four number arguments
+- Perf: `Transform` reads its position and scale straight off the vectors behind its `pos` and `scale` when it builds its matrix or is cloned, instead of through two getters each, which boxed every component they returned wherever they were not inlined
 
 ### Changed
 

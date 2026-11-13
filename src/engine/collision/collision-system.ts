@@ -42,6 +42,9 @@ export class CollisionSystem extends System {
     return this._physics.collisionProcessor;
   }
 
+  /** Reused every frame by {@apilink _updateColliders}, nothing holds on to it past the update */
+  private _colliders: Collider[] = [];
+
   private _trackCollider: (c: Collider) => void;
   private _untrackCollider: (c: Collider) => void;
 
@@ -190,11 +193,12 @@ export class CollisionSystem extends System {
     // Emit contact start/end events
     this.runContactStartEnd();
 
-    // reset the last frame cache
-    this._lastFrameContacts.clear();
-
-    // Keep track of collisions contacts that have started or ended
-    this._lastFrameContacts = new Map(this._currentFrameContacts);
+    // Keep track of collisions contacts that have started or ended: the two maps trade places, this frame's becomes the
+    // last frame's, and the old last frame's is emptied for the next
+    const lastFrameContacts = this._lastFrameContacts;
+    lastFrameContacts.clear();
+    this._lastFrameContacts = this._currentFrameContacts;
+    this._currentFrameContacts = lastFrameContacts;
 
     // Process deferred collider removals
     for (const entity of this.query.entities) {
@@ -229,7 +233,9 @@ export class CollisionSystem extends System {
    * Binds every active collider to its owner transform (a cheap no-op once bound) and returns the flattened list
    */
   private _updateColliders(): Collider[] {
-    let colliders: Collider[] = [];
+    // filled from the start and cut to size at the end: truncating to 0 first would free the backing store
+    const colliders = this._colliders;
+    let count = 0;
     for (let entityIndex = 0; entityIndex < this.query.entities.length; entityIndex++) {
       const entity = this.query.entities[entityIndex];
       const colliderComp = entity.get(ColliderComponent);
@@ -243,12 +249,15 @@ export class CollisionSystem extends System {
           if (!collider.compositeStrategy) {
             collider.compositeStrategy = this._physics.config.colliders.compositeStrategy;
           }
-          colliders = colliders.concat(compositeColliders);
+          for (let i = 0; i < compositeColliders.length; i++) {
+            colliders[count++] = compositeColliders[i];
+          }
         } else {
-          colliders.push(collider);
+          colliders[count++] = collider;
         }
       }
     }
+    colliders.length = count;
     return colliders;
   }
 

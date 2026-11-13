@@ -500,4 +500,98 @@ describe('PointerEventsToObjectDispatcher', () => {
       expect(emitSpy).not.toHaveBeenCalledWith('pointercancel', expect.anything());
     });
   });
+  describe('across frames', () => {
+    const enterLeave = (spy: { mock: { calls: unknown[][] } }) =>
+      spy.mock.calls.map((call) => call[0]).filter((name) => name === 'pointerenter' || name === 'pointerleave');
+
+    it('fires pointerenter once when a pointer arrives and pointerleave once when it goes', () => {
+      const dispatcher = new PointerEventsToObjectDispatcher();
+      const obj = makeTrackedObject();
+      const emitSpy = vi.spyOn(obj.events, 'emit');
+      dispatcher.addObject(
+        obj,
+        () => false,
+        () => true
+      );
+      const frame = (over: boolean) => {
+        if (over) {
+          dispatcher.addPointerToObject(obj, 0);
+        }
+        dispatcher.dispatchEvents(makeReceiver({ currentFrameMove: [makePointerEvent('move', ex.PointerType.Mouse)] }), [obj]);
+        dispatcher.clear();
+      };
+
+      frame(true);
+      frame(true);
+      frame(true);
+      expect(enterLeave(emitSpy)).toEqual(['pointerenter']);
+
+      frame(false);
+      frame(false);
+      expect(enterLeave(emitSpy)).toEqual(['pointerenter', 'pointerleave']);
+
+      frame(true);
+      expect(enterLeave(emitSpy)).toEqual(['pointerenter', 'pointerleave', 'pointerenter']);
+    });
+
+    it('dispatches in the order it is given, also when fewer objects follow more', () => {
+      const dispatcher = new PointerEventsToObjectDispatcher();
+      const order: string[] = [];
+      const objects = ['a', 'b', 'c'].map((name) => {
+        const obj = makeTrackedObject();
+        obj.events.on('pointermove', () => order.push(name));
+        dispatcher.addObject(
+          obj,
+          () => false,
+          () => true
+        );
+        return obj;
+      });
+      const [a, b, c] = objects;
+      const frame = (sorted: typeof objects) => {
+        for (const obj of sorted) {
+          dispatcher.addPointerToObject(obj, 0);
+        }
+        dispatcher.dispatchEvents(makeReceiver({ currentFrameMove: [makePointerEvent('move', ex.PointerType.Mouse)] }), sorted);
+        dispatcher.clear();
+      };
+
+      frame([c, a, b]);
+      expect(order).toEqual(['c', 'a', 'b']);
+
+      order.length = 0;
+      frame([b]);
+      expect(order).toEqual(['b']);
+    });
+
+    it('without a sorted list, reaches each object under a pointer last frame or this frame exactly once', () => {
+      const dispatcher = new PointerEventsToObjectDispatcher();
+      const left = makeTrackedObject();
+      const stayed = makeTrackedObject();
+      const arrived = makeTrackedObject();
+      const untouched = makeTrackedObject();
+      const spies = [left, stayed, arrived, untouched].map((obj) => {
+        dispatcher.addObject(
+          obj,
+          () => false,
+          () => true
+        );
+        return vi.spyOn(obj.events, 'emit');
+      });
+      dispatcher.addPointerToObject(left, 0);
+      dispatcher.addPointerToObject(stayed, 0);
+      dispatcher.clear();
+      dispatcher.addPointerToObject(stayed, 0);
+      dispatcher.addPointerToObject(arrived, 0);
+
+      dispatcher.dispatchEvents(makeReceiver({ currentFrameMove: [makePointerEvent('move', ex.PointerType.Mouse)] }));
+
+      const moves = spies.map((spy) => spy.mock.calls.filter((call) => call[0] === 'pointermove').length);
+      expect(moves).toEqual([0, 1, 1, 0]);
+      expect(enterLeave(spies[0])).toEqual(['pointerleave']);
+      expect(enterLeave(spies[1])).toEqual([]);
+      expect(enterLeave(spies[2])).toEqual(['pointerenter']);
+      expect(spies[3]).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -132,6 +132,12 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
   private _collidersDirty = true;
   private _pointerEventDispatcher: PointerEventsToObjectDispatcher<Tile>;
   private _strategy: CompositeStrategy = 'separate';
+
+  /** Reused by draw(), only the first entries are this frame's: truncating would free the backing store */
+  private _drawTiles: Tile[] = [];
+  private _scratchPoint = new Vector(0, 0);
+  private _scratchCorners = [new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), new Vector(0, 0)];
+
   public flagCollidersDirty() {
     this._collidersDirty = true;
   }
@@ -557,33 +563,53 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
    * Useful if you need to perform specific logic on onscreen tiles
    */
   public getOnScreenTiles(): readonly Tile[] {
+    const tiles: Tile[] = [];
+    tiles.length = this._getOnScreenTiles(tiles);
+    return tiles;
+  }
+
+  /**
+   * The tile coordinates of a world point, written into `dest`
+   */
+  private _tileCoordinatesOf(x: number, y: number, dest: Vector): Vector {
+    const point = this._scratchPoint;
+    point.setTo(x, y);
+    this.transform.get().inverse.multiply(point, point);
+    dest.setTo(Math.floor(point.x / this.tileWidth), Math.floor(point.y / this.tileHeight));
+    return dest;
+  }
+
+  /**
+   * Writes the on screen tiles to the start of `tiles`, leaving whatever comes after them, and returns how many
+   */
+  private _getOnScreenTiles(tiles: Tile[]): number {
     const worldBounds = this._engine.screen.getWorldBounds();
-    let parallaxOffset = vec(0, 0);
     let bounds = this.transform.coordPlane === CoordPlane.Screen ? this._engine.screen.getScreenBounds() : worldBounds;
     const maybeParallax = this.get(ParallaxComponent);
     if (maybeParallax && this.isInitialized) {
       const oneMinusFactor = Vector.One.sub(maybeParallax.parallaxFactor);
-      parallaxOffset = this._engine.currentScene.camera.pos.scale(oneMinusFactor);
+      const parallaxOffset = this._engine.currentScene.camera.pos.scale(oneMinusFactor);
       bounds = bounds.translate(parallaxOffset.negate());
     }
 
-    const topLeft = this._getTileCoordinates(bounds.topLeft);
-    const topRight = this._getTileCoordinates(bounds.topRight);
-    const bottomRight = this._getTileCoordinates(bounds.bottomRight);
-    const bottomLeft = this._getTileCoordinates(bounds.bottomLeft);
+    const corners = this._scratchCorners;
+    const topLeft = this._tileCoordinatesOf(bounds.left, bounds.top, corners[0]);
+    const topRight = this._tileCoordinatesOf(bounds.right, bounds.top, corners[1]);
+    const bottomRight = this._tileCoordinatesOf(bounds.right, bounds.bottom, corners[2]);
+    const bottomLeft = this._tileCoordinatesOf(bounds.left, bounds.bottom, corners[3]);
 
     const tileStartX = Math.min(clamp(topLeft.x, 0, this.columns - 1), clamp(topRight.x, 0, this.columns - 1));
     const tileStartY = Math.min(clamp(topLeft.y, 0, this.rows - 1), clamp(topRight.y, 0, this.rows - 1));
     const tileEndX = Math.max(clamp(bottomRight.x, 0, this.columns - 1), clamp(bottomLeft.x, 0, this.columns - 1));
     const tileEndY = Math.max(clamp(bottomRight.y, 0, this.rows - 1), clamp(bottomLeft.y, 0, this.rows - 1));
 
-    const tiles: Tile[] = [];
+    let count = 0;
     for (let x = tileStartX; x <= tileEndX; x++) {
       for (let y = tileStartY; y <= tileEndY; y++) {
-        tiles.push(this.getTile(x, y)!);
+        tiles[count++] = this.getTile(x, y)!;
       }
     }
-    return tiles;
+    return count;
   }
 
   /**
@@ -614,7 +640,9 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
   public override update(engine: Engine, elapsed: number) {
     this._initialize(engine);
     this.onPreUpdate(engine, elapsed);
-    this.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('preupdate')) {
+      this.emit('preupdate', new PreUpdateEvent(engine, elapsed, this));
+    }
 
     // Update colliders
     if (!this._oldPos.equals(this.pos) || this._oldRotation !== this.rotation || !this._oldScale.equals(this.scale)) {
@@ -636,7 +664,9 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
     this.scale.clone(this._oldScale);
     this.transform.pos = this.pos;
     this.onPostUpdate(engine, elapsed);
-    this.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    if (this.events.hasListeners('postupdate')) {
+      this.emit('postupdate', new PostUpdateEvent(engine, elapsed, this));
+    }
   }
 
   /**
@@ -648,12 +678,15 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
     if (!this.isInitialized) {
       return;
     }
-    this.emit('predraw', new PreDrawEvent(ctx as any, elapsed, this)); // TODO fix event
+    if (this.events.hasListeners('predraw')) {
+      this.emit('predraw', new PreDrawEvent(ctx as any, elapsed, this)); // TODO fix event
+    }
 
     let graphics: readonly Graphic[], graphicsIndex: number, graphicsLen: number;
 
-    const tiles = this.getOnScreenTiles();
-    for (let i = 0; i < tiles.length; i++) {
+    const tiles = this._drawTiles;
+    const count = this._getOnScreenTiles(tiles);
+    for (let i = 0; i < count; i++) {
       const tile = tiles[i];
       // get non-negative tile sprites
       const offsets = tile.getGraphicsOffsets();
@@ -672,7 +705,9 @@ export class TileMap extends Entity implements HasNestedPointerEvents {
         }
       }
     }
-    this.emit('postdraw', new PostDrawEvent(ctx as any, elapsed, this));
+    if (this.events.hasListeners('postdraw')) {
+      this.emit('postdraw', new PostDrawEvent(ctx as any, elapsed, this));
+    }
   }
 
   public debug(gfx: ExcaliburGraphicsContext, debugFlags: DebugConfig) {

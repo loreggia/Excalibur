@@ -127,8 +127,14 @@ export class CircleCollider extends Collider {
    * Get the center of the collider in world coordinates
    */
   public get center(): Vector {
+    return this.getCenter(new Vector(0, 0));
+  }
+
+  public override getCenter(dest: Vector): Vector {
     this._ensureWorld();
-    return this._globalMatrix.getPosition();
+    const m = this._globalMatrix.data;
+    dest.setTo(m[4], m[5]);
+    return dest;
   }
 
   /**
@@ -259,6 +265,15 @@ export class CircleCollider extends Collider {
   public get bounds(): BoundingBox {
     this._ensureWorld();
     return this.localBounds.transform(this._globalMatrix);
+  }
+
+  /**
+   * Writes the axis aligned bounding box for the circle collider in world coordinates into `dest`
+   * @param dest
+   */
+  public override getBounds(dest: BoundingBox): BoundingBox {
+    this._ensureWorld();
+    return this.localBounds.transform(this._globalMatrix, dest);
   }
 
   private _localBoundsDirty = true;

@@ -138,10 +138,17 @@ export class EdgeCollider extends Collider {
    * Get the center of the collision area in world coordinates
    */
   public get center(): Vector {
-    const begin = this._getTransformedBegin();
-    const end = this._getTransformedEnd();
-    const pos = begin.average(end);
-    return pos;
+    return this.getCenter(new Vector(0, 0));
+  }
+
+  public override getCenter(dest: Vector): Vector {
+    this._ensureWorld();
+    // midpoint of the transformed begin/end, transforming the local midpoint is equivalent for an affine matrix
+    const m = this._globalMatrix.data;
+    const x = (this.begin.x + this.end.x) / 2;
+    const y = (this.begin.y + this.end.y) / 2;
+    dest.setTo(m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]);
+    return dest;
   }
 
   private _getTransformedBegin(): Vector {

@@ -1269,4 +1269,90 @@ describe('Collision Shape', () => {
       expect(sut.bounds.bottom).toEqual(0);
     });
   });
+  describe('getBounds()', () => {
+    const shapes: [string, () => ex.Collider][] = [
+      ['a circle', () => ex.Colliders.Circle(10)],
+      ['a polygon', () => ex.Colliders.Box(20, 10)],
+      ['an edge', () => ex.Colliders.Edge(ex.vec(0, 0), ex.vec(30, 10))],
+      ['a composite', () => new ex.CompositeCollider([ex.Colliders.Circle(10), ex.Colliders.Box(40, 10)])]
+    ];
+
+    for (const [name, create] of shapes) {
+      it(`writes the same box as bounds into the box it is given, for ${name}`, () => {
+        const collider = create();
+        const actor = new ex.Actor({ x: 100, y: 50, rotation: Math.PI / 6, scale: ex.vec(2, 1), collider });
+        actor.collider.update();
+        const dest = new ex.BoundingBox();
+
+        expect(collider.getBounds(dest)).toBe(dest);
+        expect(dest).toEqual(collider.bounds);
+
+        actor.pos = ex.vec(-40, 300);
+        actor.collider.update();
+
+        expect(collider.getBounds(dest)).toEqual(collider.bounds);
+      });
+    }
+  });
+  describe('getCenter()', () => {
+    const shapes: [string, () => ex.Collider][] = [
+      ['a circle', () => ex.Colliders.Circle(10, ex.vec(5, -5))],
+      ['a polygon', () => ex.Colliders.Box(20, 10, ex.Vector.Half, ex.vec(5, -5))],
+      ['an edge', () => ex.Colliders.Edge(ex.vec(0, 0), ex.vec(30, 10))],
+      ['a composite', () => new ex.CompositeCollider([ex.Colliders.Circle(10), ex.Colliders.Box(40, 10)])]
+    ];
+
+    for (const [name, create] of shapes) {
+      it(`writes the same point as center into the vector it is given, for ${name}`, () => {
+        const collider = create();
+        const actor = new ex.Actor({ x: 100, y: 50, rotation: Math.PI / 6, scale: ex.vec(2, 1), collider });
+        actor.collider.update();
+        const dest = new ex.Vector(0, 0);
+
+        expect(collider.getCenter(dest)).toBe(dest);
+        expect(dest.x).toBeCloseTo(collider.center.x, 10);
+        expect(dest.y).toBeCloseTo(collider.center.y, 10);
+
+        actor.pos = ex.vec(-40, 300);
+        actor.collider.update();
+
+        collider.getCenter(dest);
+        expect(dest.x).toBeCloseTo(collider.center.x, 10);
+        expect(dest.y).toBeCloseTo(collider.center.y, 10);
+      });
+    }
+
+    it('puts an edge center halfway between its transformed ends', () => {
+      const edge = ex.Colliders.Edge(ex.vec(0, 0), ex.vec(30, 10));
+      const actor = new ex.Actor({ x: 100, y: 50, rotation: Math.PI / 6, scale: ex.vec(2, 1), collider: edge });
+      actor.collider.update();
+      const begin = actor.transform.apply(edge.begin);
+      const end = actor.transform.apply(edge.end);
+
+      const center = edge.getCenter(new ex.Vector(0, 0));
+
+      expect(center.x).toBeCloseTo((begin.x + end.x) / 2, 10);
+      expect(center.y).toBeCloseTo((begin.y + end.y) / 2, 10);
+    });
+  });
+  describe('polygon contacts', () => {
+    for (const flipped of [false, true]) {
+      it(`point their normal from A to B and own it${flipped ? ', with the colliders swapped' : ''}`, () => {
+        const actorA = new ex.Actor({ x: 0, y: 0, width: 20, height: 20 });
+        const actorB = new ex.Actor({ x: 15, y: 2, width: 20, height: 20 });
+        actorA.collider.update();
+        actorB.collider.update();
+        const a = (flipped ? actorB : actorA).collider.get() as ex.PolygonCollider;
+        const b = (flipped ? actorA : actorB).collider.get() as ex.PolygonCollider;
+
+        const [contact] = ex.CollisionJumpTable.CollidePolygonPolygon(a, b);
+
+        const aToB = b.center.sub(a.center);
+        expect(contact.normal.dot(aToB)).toBeGreaterThan(0);
+        expect(contact.normal).not.toBe(contact.info.axis);
+        expect(contact.tangent).toBeVector(contact.normal.perpendicular());
+        expect(contact.mtv).toBeVector(contact.normal.scale(-contact.info.separation));
+      });
+    }
+  });
 });

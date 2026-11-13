@@ -407,16 +407,18 @@ export class GraphicsComponent extends Component {
     this._localBounds = bounds;
   }
 
+  private _emptyBounds?: BoundingBox;
   public recalculateBounds() {
-    let bb = new BoundingBox();
     const graphic = this._graphics[this._current];
     const options = this._options[this._current];
 
     if (!graphic) {
-      this._localBounds = bb;
+      // localBounds recalculates on every read while there is no graphic, so the empty box is kept
+      this._localBounds = this._emptyBounds ??= new BoundingBox();
       return;
     }
 
+    let bb = new BoundingBox();
     let anchor = this.anchor;
     let offset = this.offset;
     if (options?.anchor) {

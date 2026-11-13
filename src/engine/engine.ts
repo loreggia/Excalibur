@@ -1784,7 +1784,9 @@ O|===|* >________________>\n\
    * @internal
    */
   public _preupdate(elapsed: number) {
-    this.emit('preupdate', new PreUpdateEvent(this, elapsed, this));
+    if (this.events.hasListeners('preupdate')) {
+      this.emit('preupdate', new PreUpdateEvent(this, elapsed, this));
+    }
     this.onPreUpdate(this, elapsed);
   }
 
@@ -1801,7 +1803,9 @@ O|===|* >________________>\n\
    * @internal
    */
   public _postupdate(elapsed: number) {
-    this.emit('postupdate', new PostUpdateEvent(this, elapsed, this));
+    if (this.events.hasListeners('postupdate')) {
+      this.emit('postupdate', new PostUpdateEvent(this, elapsed, this));
+    }
     this.onPostUpdate(this, elapsed);
   }
 
@@ -1853,7 +1857,9 @@ O|===|* >________________>\n\
    * @internal
    */
   public _predraw(ctx: ExcaliburGraphicsContext, elapsed: number) {
-    this.emit('predraw', new PreDrawEvent(ctx, elapsed, this));
+    if (this.events.hasListeners('predraw')) {
+      this.emit('predraw', new PreDrawEvent(ctx, elapsed, this));
+    }
     this.onPreDraw(ctx, elapsed);
   }
 
@@ -1870,7 +1876,9 @@ O|===|* >________________>\n\
    * @internal
    */
   public _postdraw(ctx: ExcaliburGraphicsContext, elapsed: number) {
-    this.emit('postdraw', new PostDrawEvent(ctx, elapsed, this));
+    if (this.events.hasListeners('postdraw')) {
+      this.emit('postdraw', new PostDrawEvent(ctx, elapsed, this));
+    }
     this.onPostDraw(ctx, elapsed);
   }
 

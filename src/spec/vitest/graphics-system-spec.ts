@@ -395,6 +395,50 @@ describe('A Graphics ECS System', () => {
     game.dispose();
   });
 
+  it('applies every ancestor transform and opacity from the root down', async () => {
+    const game = TestUtils.engine();
+    await TestUtils.runToReady(game);
+
+    const grandparent = new ex.Actor({ x: 10, y: 20, rotation: 0.5, scale: ex.vec(2, 2) });
+    const parent = new ex.Actor({ x: 30, y: 40, rotation: 0.25, scale: ex.vec(1, 3) });
+    const child = new ex.Actor({ x: 50, y: 60, rotation: 1, scale: ex.vec(0.5, 0.5) });
+    grandparent.addChild(parent);
+    parent.addChild(child);
+    grandparent.graphics.opacity = 0.5;
+    parent.graphics.opacity = 0.5;
+    child.graphics.opacity = 0.8;
+    const rectangle = new ex.Rectangle({ width: 10, height: 10, color: ex.Color.Red });
+    child.graphics.use(rectangle);
+    let opacityWhenDrawn = NaN;
+    vi.spyOn(rectangle, 'draw').mockImplementation((ctx) => {
+      opacityWhenDrawn = ctx.opacity;
+    });
+
+    const translate = vi.spyOn(game.graphicsContext, 'translate');
+    const scale = vi.spyOn(game.graphicsContext, 'scale');
+    const rotate = vi.spyOn(game.graphicsContext, 'rotate');
+
+    const graphicsSystem = new ex.GraphicsSystem(game.currentScene.world);
+    graphicsSystem.onInitialize(game.currentScene.world, game.currentScene);
+    graphicsSystem.onPreUpdate();
+    graphicsSystem.query.checkAndModify(child);
+    graphicsSystem.onUpdate(16);
+
+    expect(translate.mock.calls.slice(-3)).toEqual([
+      [10, 20],
+      [30, 40],
+      [50, 60]
+    ]);
+    expect(scale.mock.calls.slice(-3)).toEqual([
+      [2, 2],
+      [1, 3],
+      [0.5, 0.5]
+    ]);
+    expect(rotate.mock.calls.slice(-3)).toEqual([[0.5], [0.25], [1]]);
+    expect(opacityWhenDrawn).toBeCloseTo(0.5 * 0.5 * 0.8);
+    game.dispose();
+  });
+
   it('can add graphics+transform to a parent without a transform', () => {
     const world = engine.currentScene.world;
     const sut = new ex.GraphicsSystem(world);

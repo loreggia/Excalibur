@@ -188,6 +188,93 @@ describe('An EventEmitter', () => {
     }).toThrowError('Cannot pipe to self');
   });
 
+  describe('hasListeners()', () => {
+    it('is false until something listens to that event', () => {
+      const emitter = new ex.EventEmitter();
+      expect(emitter.hasListeners('event')).toBe(false);
+
+      emitter.on('other', vi.fn());
+
+      expect(emitter.hasListeners('event')).toBe(false);
+      expect(emitter.hasListeners('other')).toBe(true);
+    });
+
+    it('is true for an "on" listener until it is switched off', () => {
+      const emitter = new ex.EventEmitter();
+      const handler = vi.fn();
+      emitter.on('event', handler);
+      expect(emitter.hasListeners('event')).toBe(true);
+
+      emitter.off('event', handler);
+
+      expect(emitter.hasListeners('event')).toBe(false);
+    });
+
+    it('is true for a "once" listener until it has fired', () => {
+      const emitter = new ex.EventEmitter();
+      emitter.once('event', vi.fn());
+      expect(emitter.hasListeners('event')).toBe(true);
+
+      emitter.emit('event', new FakeEvent());
+
+      expect(emitter.hasListeners('event')).toBe(false);
+    });
+
+    it('is true for every event while the emitter is piped', () => {
+      const emitter = new ex.EventEmitter();
+      const sub = emitter.pipe(new ex.EventEmitter());
+      expect(emitter.hasListeners('event')).toBe(true);
+
+      sub.close();
+
+      expect(emitter.hasListeners('event')).toBe(false);
+    });
+
+    it('is false while the emitter is paused or after it is cleared', () => {
+      const emitter = new ex.EventEmitter();
+      emitter.on('event', vi.fn());
+
+      emitter.pause();
+      expect(emitter.hasListeners('event')).toBe(false);
+      emitter.unpause();
+      expect(emitter.hasListeners('event')).toBe(true);
+
+      emitter.clear();
+      expect(emitter.hasListeners('event')).toBe(false);
+    });
+  });
+
+  it('fires a once listener added by another once listener on the next emit', () => {
+    const emitter = new ex.EventEmitter();
+    const second = vi.fn();
+    emitter.once('event', () => emitter.once('event', second));
+
+    emitter.emit('event', new FakeEvent());
+    expect(second).not.toHaveBeenCalled();
+
+    emitter.emit('event', new FakeEvent());
+    expect(second).toHaveBeenCalledTimes(1);
+
+    emitter.emit('event', new FakeEvent());
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps once listeners for an event that is emitted without any in between', () => {
+    const emitter = new ex.EventEmitter();
+    const on = vi.fn();
+    const once = vi.fn();
+    emitter.on('event', on);
+    emitter.emit('event', new FakeEvent());
+
+    emitter.once('event', once);
+    emitter.emit('event', new FakeEvent());
+    emitter.emit('event', new FakeEvent());
+
+    expect(on).toHaveBeenCalledTimes(3);
+    expect(once).toHaveBeenCalledTimes(1);
+    expect(emitter.hasListeners('event')).toBe(true);
+  });
+
   it('can listen to a handler only once', () => {
     const pubsub = new ex.EventEmitter();
 

@@ -8,27 +8,28 @@ export class EulerIntegrator {
   private static _POS = new Vector(0, 0);
   private static _SCALE = new Vector(1, 1);
 
-  private static _ACC = new Vector(0, 0);
-  private static _VEL = new Vector(0, 0);
-  private static _VEL_ACC = new Vector(0, 0);
-  private static _SCALE_FACTOR = new Vector(0, 0);
-
   static integrate(transform: TransformComponent, motion: MotionComponent, totalAcc: Vector, elapsed: number): void {
     const seconds = elapsed / 1000;
-    // This code looks a little wild, but it's to avoid creating any new Vector instances
-    // integration is done in a tight loop so this is key to avoid GC'ing
-    motion.vel.addEqual(totalAcc.scale(seconds, EulerIntegrator._ACC));
+    // plain number math that reads each component once: integration runs for every moving entity every frame
+    const accX = totalAcc.x;
+    const accY = totalAcc.y;
+    const vel = motion.vel;
+    const maxVel = motion.maxVel;
     // clamp the components of the velocity vector
-    motion.vel.setTo(clamp(motion.vel.x, -motion.maxVel.x, motion.maxVel.x), clamp(motion.vel.y, -motion.maxVel.y, motion.maxVel.y));
+    const velX = clamp(vel.x + accX * seconds, -maxVel.x, maxVel.x);
+    const velY = clamp(vel.y + accY * seconds, -maxVel.y, maxVel.y);
+    vel.setTo(velX, velY);
 
-    transform.pos
-      .add(motion.vel.scale(seconds, EulerIntegrator._VEL), EulerIntegrator._POS)
-      .addEqual(totalAcc.scale(0.5 * seconds * seconds, EulerIntegrator._VEL_ACC));
+    const halfSecondsSquared = 0.5 * seconds * seconds;
+    const pos = transform.pos;
+    EulerIntegrator._POS.setTo(pos.x + velX * seconds + accX * halfSecondsSquared, pos.y + velY * seconds + accY * halfSecondsSquared);
 
     motion.angularVelocity += motion.torque * (1.0 / motion.inertia) * seconds;
     const rotation = transform.rotation + motion.angularVelocity * seconds;
 
-    transform.scale.add(motion.scaleFactor.scale(seconds, this._SCALE_FACTOR), EulerIntegrator._SCALE);
+    const scale = transform.scale;
+    const scaleFactor = motion.scaleFactor;
+    EulerIntegrator._SCALE.setTo(scale.x + scaleFactor.x * seconds, scale.y + scaleFactor.y * seconds);
     const tx = transform.get();
     tx.setTransform(EulerIntegrator._POS, rotation, EulerIntegrator._SCALE);
   }

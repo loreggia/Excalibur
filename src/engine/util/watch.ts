@@ -33,26 +33,36 @@ export function watch<T extends object>(type: T, change: (type: T) => any): T {
   return type;
 }
 
-const createHandler = <T>(path: string[] = [], change: (type: T) => any, typeType: T) => ({
-  get: (target: T, key: string): any => {
-    if (key === '__isProxy') {
+const createHandler = <T>(path: string[] = [], change: (type: T) => any, typeType: T) => {
+  // one proxy per nested object, kept for as long as the property holds that object
+  const nested = new Map<string, { value: object; proxy: object }>();
+  return {
+    get: (target: T, key: string): any => {
+      if (key === '__isProxy') {
+        return true;
+      }
+      const value = (target as any)[key];
+      if (typeof value === 'object' && value != null) {
+        let entry = nested.get(key);
+        if (!entry || entry.value !== value) {
+          entry = { value, proxy: new Proxy(value, createHandler<any>([...path, key as string], change, typeType)) };
+          nested.set(key, entry);
+        }
+        return entry.proxy;
+      }
+      return value;
+    },
+    set: (target: T, key: string, value: any) => {
+      if (typeof key === 'string') {
+        if (key[0] !== '_') {
+          change(typeType);
+        }
+      }
+      (target as any)[key] = value;
       return true;
     }
-    if (typeof (target as any)[key] === 'object' && (target as any)[key] != null) {
-      return new Proxy((target as any)[key], createHandler<any>([...path, key as string], change, typeType));
-    }
-    return (target as any)[key];
-  },
-  set: (target: T, key: string, value: any) => {
-    if (typeof key === 'string') {
-      if (key[0] !== '_') {
-        change(typeType);
-      }
-    }
-    (target as any)[key] = value;
-    return true;
-  }
-});
+  };
+};
 
 /**
  *

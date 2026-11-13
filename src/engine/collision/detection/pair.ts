@@ -8,12 +8,31 @@ import type { Collider } from '../colliders/collider';
  * Models a potential collision between 2 colliders
  */
 export class Pair {
-  public id: string;
+  private _id?: string;
+  /**
+   * The pair hash of the two colliders, built on first read: most pairs are never asked for it
+   */
+  public get id(): string {
+    return (this._id ??= Pair.calculatePairHash(this.colliderA.id, this.colliderB.id));
+  }
+  public set id(id: string) {
+    this._id = id;
+  }
+
   constructor(
     public colliderA: Collider,
     public colliderB: Collider
-  ) {
-    this.id = Pair.calculatePairHash(colliderA.id, colliderB.id);
+  ) {}
+
+  /**
+   * Points a pooled pair at two other colliders
+   * @param colliderA
+   * @param colliderB
+   */
+  public reset(colliderA: Collider, colliderB: Collider): void {
+    this.colliderA = colliderA;
+    this.colliderB = colliderB;
+    this._id = undefined;
   }
 
   /**

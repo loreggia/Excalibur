@@ -8,7 +8,7 @@ import { System, SystemType } from '../entity-component-system//system';
 import { ParallaxComponent } from './parallax-component';
 import { Vector } from '../math/vector';
 import { CoordPlane } from '../math/coord-plane';
-import type { BoundingBox } from '../collision/bounding-box';
+import { BoundingBox } from '../collision/bounding-box';
 import type { Query, World } from '../entity-component-system';
 import { SystemPriority } from '../entity-component-system';
 
@@ -19,6 +19,8 @@ export class OffscreenSystem extends System {
   private _camera!: Camera;
   private _screen!: Screen;
   private _worldBounds!: BoundingBox;
+  /** Scratch for the bounds under test, only compared and never kept */
+  private _transformedBounds = new BoundingBox();
   query: Query<typeof TransformComponent | typeof GraphicsComponent>;
 
   constructor(public world: World) {
@@ -75,7 +77,7 @@ export class OffscreenSystem extends System {
       if (parallaxOffset) {
         bounds = bounds.translate(parallaxOffset);
       }
-      const transformedBounds = bounds.transform(transform.get().matrix);
+      const transformedBounds = bounds.transform(transform.get().matrix, this._transformedBounds);
       const graphicsOffscreen = !this._worldBounds.overlaps(transformedBounds);
       return graphicsOffscreen;
     } else {

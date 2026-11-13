@@ -44,6 +44,77 @@ describe('A Sparse Hash Grid Broadphase', () => {
     expect(pairs.length).toBe(1);
   });
 
+  it('finds every overlapping pair exactly once when colliders share several cells, frame after frame', () => {
+    const dt = new ex.SparseHashGridCollisionProcessor({ size: 50 });
+    const colliders: ex.Collider[] = [];
+    // 120x120 boxes 40 apart: each spans 3 to 4 cells a side and overlaps its neighbours in several of them
+    for (let row = 0; row < 4; row++) {
+      for (let column = 0; column < 4; column++) {
+        const actor = new ex.Actor({ x: column * 40, y: row * 40, width: 120, height: 120, collisionType: ex.CollisionType.Active });
+        actor.collider.update();
+        colliders.push(actor.collider.get()!);
+        dt.track(actor.collider.get()!);
+      }
+    }
+    const expected = new Set<string>();
+    for (let i = 0; i < colliders.length; i++) {
+      for (let j = i + 1; j < colliders.length; j++) {
+        if (colliders[i].bounds.overlaps(colliders[j].bounds)) {
+          expected.add(ex.Pair.calculatePairHash(colliders[i].id, colliders[j].id));
+        }
+      }
+    }
+
+    for (let frame = 0; frame < 2; frame++) {
+      const ids = dt.broadphase(colliders, 100).map((pair) => pair.id);
+      expect(ids.length).toBe(expected.size);
+      expect(new Set(ids)).toEqual(expected);
+      dt.narrowphase([]);
+    }
+  });
+
+  it('follows colliders that move from frame to frame', () => {
+    const dt = new ex.SparseHashGridCollisionProcessor({ size: 50 });
+    const colliders = [actorA.collider.get()!, actorC.collider.get()!];
+    dt.track(colliders[0]);
+    dt.track(colliders[1]);
+    const frame = () => {
+      actorC.collider.update();
+      dt.update(colliders, 16);
+      const pairs = dt.broadphase(colliders, 16);
+      dt.narrowphase([]);
+      return pairs.length;
+    };
+
+    expect(frame()).toBe(0);
+    actorC.pos = ex.vec(15, 0);
+    expect(frame()).toBe(1);
+    actorC.pos = ex.vec(1000, 0);
+    expect(frame()).toBe(0);
+  });
+
+  it("finds a sleeping body's pair from its awake neighbour, whichever was tracked first", () => {
+    for (const sleeperFirst of [true, false]) {
+      const sleeper = new ex.Actor({ x: 0, y: 0, width: 20, height: 20, collisionType: ex.CollisionType.Active });
+      const awake = new ex.Actor({ x: 10, y: 0, width: 20, height: 20, collisionType: ex.CollisionType.Active });
+      sleeper.collider.update();
+      awake.collider.update();
+      sleeper.body.isSleeping = true;
+      const dt = new ex.SparseHashGridCollisionProcessor({ size: 50 });
+      const tracked = sleeperFirst ? [sleeper, awake] : [awake, sleeper];
+      for (const actor of tracked) {
+        dt.track(actor.collider.get()!);
+      }
+
+      const pairs = dt.broadphase(
+        tracked.map((actor) => actor.collider.get()!),
+        100
+      );
+
+      expect(pairs.map((pair) => pair.id)).toEqual([ex.Pair.calculatePairHash(sleeper.collider.get()!.id, awake.collider.get()!.id)]);
+    }
+  });
+
   it('should not find pairs for a composite collider', () => {
     const circle = ex.Colliders.Circle(50);
     const box = ex.Colliders.Box(200, 10);

@@ -47,6 +47,23 @@ describe('EulerIntegrator', () => {
     expect(motion.vel.y).toEqual(1);
   });
 
+  it('moves by the clamped velocity when acceleration takes it past maxVel', () => {
+    const transform = new TransformComponent();
+    const motion = new MotionComponent();
+    const totalAcc = new Vector(4, -4);
+    const elapsed = 500;
+
+    motion.vel = new Vector(3, 0);
+    motion.maxVel = new Vector(4, 1);
+
+    EulerIntegrator.integrate(transform, motion, totalAcc, elapsed);
+
+    expect(motion.vel.x).toEqual(4);
+    expect(motion.vel.y).toEqual(-1);
+    expect(transform.pos.x).toEqual(4 * 0.5 + 4 * 0.125);
+    expect(transform.pos.y).toEqual(-1 * 0.5 - 4 * 0.125);
+  });
+
   it('applies motion torque and inertia', () => {
     const transform = new TransformComponent();
     const motion = new MotionComponent();
