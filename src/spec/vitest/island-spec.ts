@@ -26,6 +26,42 @@ describe('A contact Island', () => {
     expect(islands[0].bodies).toContain(top.body);
   });
 
+  it('gives each island its own bodies and contacts, once each', () => {
+    const { bottom, top, contacts } = makeStack();
+    const floor = new ex.Actor({ x: 0, y: 39, width: 100, height: 40, collisionType: ex.CollisionType.Fixed });
+    floor.collider.update();
+    const floorContacts = floor.collider.collide(bottom.collider);
+    expect(floorContacts.length).toBe(1);
+    const lone = new ex.Actor({ x: 500, y: 0, width: 40, height: 40, collisionType: ex.CollisionType.Active });
+    const allContacts = [...contacts, ...floorContacts];
+
+    const islands = buildContactIslands(getDefaultPhysicsConfig().bodies, [floor.body, bottom.body, top.body, lone.body], allContacts);
+
+    expect(islands.length).toBe(2);
+    const stack = islands.find((island) => island.bodies.includes(top.body))!;
+    expect(stack.bodies).toHaveLength(2);
+    expect(stack.bodies).toContain(bottom.body);
+    expect(stack.contacts).toHaveLength(2);
+    expect(stack.contacts).toEqual(expect.arrayContaining(allContacts));
+    expect(bottom.body.island).toBe(stack);
+    expect(top.body.island).toBe(stack);
+    const alone = islands.find((island) => island.bodies.includes(lone.body))!;
+    expect(alone.bodies).toEqual([lone.body]);
+    expect(alone.contacts).toEqual([]);
+    expect(floor.body.island).toBeNull();
+  });
+
+  it('builds islands again from scratch once the contacts are gone', () => {
+    const { bottom, top, contacts } = makeStack();
+    buildContactIslands(getDefaultPhysicsConfig().bodies, [bottom.body, top.body], contacts);
+
+    const islands = buildContactIslands(getDefaultPhysicsConfig().bodies, [bottom.body, top.body], []);
+
+    expect(islands.length).toBe(2);
+    expect(bottom.body.island).not.toBe(top.body.island);
+    expect(islands.map((island) => island.contacts.length)).toEqual([0, 0]);
+  });
+
   it('wakes every body when the island is only partially asleep', () => {
     const { bottom, top, contacts } = makeStack();
     bottom.body.sleep();

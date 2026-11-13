@@ -49,6 +49,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Perf: `Actor` hands its graphics the plain anchor and offset vectors instead of the proxies that watch them. A proxy behind any `GraphicsComponent.anchor` kept V8 from inlining the reads of every watched vector in the engine, `Transform.pos` and `scale` included, so each read boxed the number it returned
 - Perf: the WebGL graphics context reads each image's size once per frame into a record it keeps for that image, instead of clearing and refilling two maps every frame. `ImageRendererV2` keeps the images of a batch, their textures and sizes in slots it reuses instead of clearing four maps and sets after every batch, and skips building texture options for images already uploaded. `TextureLoader.load` reads its options only to upload a new texture, and `GarbageCollector.touch` updates the timestamp it keeps instead of replacing it
 - Perf: `EdgeCollider` compares its begin, end and offset as numbers to tell whether its shape changed, instead of building a string from them on every read of `points` or `normals`
+- Perf: contact islands are built with the union-find state on the bodies and each contact put straight into the island of its active body, instead of through new maps, sets and arrays of every body's contacts each step
 
 ### Changed
 
