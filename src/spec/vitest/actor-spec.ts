@@ -212,6 +212,19 @@ describe('A game actor', () => {
     expect(actor.graphics.anchor).toBeVector(ex.vec(0, 0));
   });
 
+  it('wraps plain vectors, not proxies, in its graphics anchor and offset', () => {
+    const actor = new ex.Actor({ anchor: ex.vec(0.7, 0.7), offset: ex.vec(3, 4) });
+    const isProxy = (v: ex.Vector) => (v as unknown as { original: { __isProxy?: boolean } }).original.__isProxy === true;
+
+    expect(isProxy(actor.graphics.anchor)).toBe(false);
+    expect(isProxy(actor.graphics.offset)).toBe(false);
+
+    actor.graphics.anchor.x = 0.2;
+    expect(actor.anchor.x).toBe(0.2);
+    actor.anchor.y = 0.3;
+    expect(actor.graphics.anchor.y).toBe(0.3);
+  });
+
   it("can have it's color changed after construction", () => {
     const actor = new ex.Actor({ color: ex.Color.Blue, width: 50, height: 50 });
     const current = actor.graphics.current;

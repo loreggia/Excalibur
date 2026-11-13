@@ -584,8 +584,10 @@ export class Actor extends Entity implements Eventable, PointerEvents, CanInitia
     };
 
     this.name = name ?? this.name;
-    this.anchor = anchor ?? Actor.defaults.anchor.clone();
-    this.offset = offset ?? Vector.Zero;
+    const actorAnchor = anchor ?? Actor.defaults.anchor.clone();
+    const actorOffset = offset ?? Vector.Zero;
+    this.anchor = actorAnchor;
+    this.offset = actorOffset;
     this.transform = new TransformComponent();
     this.addComponent(this.transform);
     this.pos = pos ?? vec(x ?? 0, y ?? 0);
@@ -598,8 +600,10 @@ export class Actor extends Entity implements Eventable, PointerEvents, CanInitia
     this.addComponent(this.pointer);
 
     this.graphics = new GraphicsComponent({
-      anchor: this.anchor,
-      offset: this.offset,
+      // the plain vectors rather than the watched proxies: once any watch vector wraps a proxy, V8 no longer inlines the
+      // reads of any watch vector, and each one boxes the number it returns
+      anchor: actorAnchor,
+      offset: actorOffset,
       opacity: opacity
     });
     this.addComponent(this.graphics);
