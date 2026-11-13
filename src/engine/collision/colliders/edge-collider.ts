@@ -71,7 +71,13 @@ export class EdgeCollider extends Collider {
   // Two point / two normal convex shape view of the edge used by the separating axis test
   private _satPoints: Vector[] = [];
   private _satNormals: Vector[] = [];
-  private _satCacheKey = '';
+  // the begin, end and offset the shape was built from
+  private _satBeginX = NaN;
+  private _satBeginY = NaN;
+  private _satEndX = NaN;
+  private _satEndY = NaN;
+  private _satOffsetX = NaN;
+  private _satOffsetY = NaN;
 
   /**
    * The transform from local edge space to world space, offset is baked into {@apilink EdgeCollider.points}
@@ -81,11 +87,28 @@ export class EdgeCollider extends Collider {
   }
 
   private _updateSatShape() {
-    const key = `${this.begin.x},${this.begin.y},${this.end.x},${this.end.y},${this.offset.x},${this.offset.y}`;
-    if (key === this._satCacheKey) {
+    const beginX = this.begin.x;
+    const beginY = this.begin.y;
+    const endX = this.end.x;
+    const endY = this.end.y;
+    const offsetX = this.offset.x;
+    const offsetY = this.offset.y;
+    if (
+      beginX === this._satBeginX &&
+      beginY === this._satBeginY &&
+      endX === this._satEndX &&
+      endY === this._satEndY &&
+      offsetX === this._satOffsetX &&
+      offsetY === this._satOffsetY
+    ) {
       return;
     }
-    this._satCacheKey = key;
+    this._satBeginX = beginX;
+    this._satBeginY = beginY;
+    this._satEndX = endX;
+    this._satEndY = endY;
+    this._satOffsetX = offsetX;
+    this._satOffsetY = offsetY;
     const begin = this.begin.add(this.offset);
     const end = this.end.add(this.offset);
     this._satPoints = [begin, end];
