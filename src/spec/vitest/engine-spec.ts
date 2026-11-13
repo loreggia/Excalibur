@@ -117,7 +117,9 @@ describe('The engine', () => {
     let finishPluginLoad!: () => void;
     const pluginLoad = new Promise<void>((resolve) => (finishPluginLoad = resolve));
     class SlowLoadPlugin extends ex.Plugin {
-      override name = 'test.slow-load';
+      constructor() {
+        super('test.slow-load');
+      }
       override onLoad = () => pluginLoad;
     }
     class StartScene extends ex.Scene {}

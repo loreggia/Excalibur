@@ -135,7 +135,7 @@ describe('Clocks', () => {
         tick: () => {
           /* nothing */
         },
-        defaultUpdateMs: 10
+        defaultUpdate: 10
       });
       testClock.start();
 

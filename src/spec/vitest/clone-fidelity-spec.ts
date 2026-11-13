@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import * as ex from '@excalibur';
 
 // Engine sources, used by the coverage meta-test to find every class that defines clone()
@@ -259,7 +260,10 @@ const cases: CloneCase[] = [
     file: 'collision/body-component.ts',
     name: 'BodyComponent',
     make: () => {
-      const b = new ex.BodyComponent({ type: ex.CollisionType.Fixed, mass: 7, bounciness: 0.9, canSleep: false });
+      const b = new ex.BodyComponent({ type: ex.CollisionType.Fixed });
+      b.mass = 7;
+      b.bounciness = 0.9;
+      b.canSleep = false;
       b.group = ex.CollisionGroupManager.groupByName('clone-spec-group') ?? ex.CollisionGroupManager.create('clone-spec-group');
       return b;
     }

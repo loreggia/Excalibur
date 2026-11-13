@@ -98,7 +98,7 @@ describe('A game actor', () => {
     expect(actor.rotation).toBeCloseTo(2);
     expect(actor.angularVelocity).toBe(0.1);
     expect(actor.z).toBe(10);
-    expect(actor.color.toString()).toBe(ex.Color.Red.toString());
+    expect(actor.color!.toString()).toBe(ex.Color.Red.toString());
     expect(actor2.pos.x).toBe(4);
     expect(actor2.pos.y).toBe(5);
   });
